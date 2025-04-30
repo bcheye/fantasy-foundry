@@ -1,0 +1,6 @@
+position_type_id,singular_name,plural_name
+1,Goalkeeper,Goalkeepers
+2,Defender,Defenders
+3,Midfielder,Midfielders
+4,Forward,Forwards
+5,Manager,Managers

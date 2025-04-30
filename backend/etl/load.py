@@ -22,5 +22,7 @@ def load_csv_to_db(csv_path, schema, table_name):
     print(f"✔ Loaded {len(df)} rows into {table_name}")
 
 if __name__ == "__main__":
-    load_csv_to_db("players.csv", "fpl","players")
+    load_csv_to_db("players.csv", "fpl", "players")
     load_csv_to_db("teams.csv", "fpl", "teams")
+    load_csv_to_db("gameweeks.csv", "fpl", "gameweeks")
+    load_csv_to_db("positions.csv", "fpl", "positions")
