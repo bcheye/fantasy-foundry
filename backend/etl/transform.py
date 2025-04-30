@@ -27,12 +27,31 @@ def transform_teams(data):
     teams.rename(columns={"id": "team_id"}, inplace=True)
     return teams
 
+def transform_gameweeks(data):
+    gameweeks = pd.DataFrame(data["events"])
+    gameweeks = gameweeks[[
+        "id", "name", "deadline_time", "average_entry_score", "finished", "data_checked", "is_current", "is_next"
+    ]]
+    gameweeks.rename(columns={"id": "gameweek_id"}, inplace=True)
+    return gameweeks
+
+def transform_positions(data):
+    positions = pd.DataFrame(data["element_types"])
+    positions = positions[["id", "singular_name", "plural_name"]]
+    positions.rename(columns={"id": "position_type_id"}, inplace=True)
+    return positions
+
 if __name__ == "__main__":
     raw = load_raw_bootstrap()
+
     df_players = transform_players(raw)
     df_teams = transform_teams(raw)
+    df_gameweeks = transform_gameweeks(raw)
+    df_positions = transform_positions(raw)
 
     df_players.to_csv("players.csv", index=False)
     df_teams.to_csv("teams.csv", index=False)
+    df_gameweeks.to_csv("gameweeks.csv", index=False)
+    df_positions.to_csv("positions.csv", index=False)
 
-    print("✔ Transformed players and teams saved as CSVs")
+    print("✔ All transformed data saved as CSVs")
