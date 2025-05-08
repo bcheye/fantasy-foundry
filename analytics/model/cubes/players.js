@@ -3,92 +3,70 @@ cube(`Players`, {
 
   joins: {
     Teams: {
-      sql: `${CUBE}.team = ${Teams}.team_id`,
       relationship: `belongsTo`,
+      sql: `${Players.team} = ${Teams.teamId}`
     },
+    Positions: {
+      relationship: `belongsTo`,
+      sql: `${Players.positionTypeId} = ${Positions.positionTypeId}`
+    }
   },
 
   measures: {
+    count: {
+      type: `count`
+    },
     totalPoints: {
       sql: `total_points`,
-      type: `sum`,
+      type: `sum`
     },
-
-    totalGoals: {
+    goalsScored: {
       sql: `goals_scored`,
-      type: `sum`,
+      type: `sum`
     },
-
-    totalAssists: {
+    assists: {
       sql: `assists`,
-      type: `sum`,
+      type: `sum`
     },
-
-    count: {
-      type: `count`,
+    minutes: {
+      sql: `minutes`,
+      type: `sum`
     },
+    redCards: {
+      sql: `red_cards`,
+      type: `sum`
+    },
+    yellowCards: {
+      sql: `yellow_cards`,
+      type: `sum`
+    }
   },
 
   dimensions: {
     playerId: {
       sql: `player_id`,
       type: `number`,
-      primaryKey: true,
+      primaryKey: true
     },
-
     name: {
       sql: `name`,
-      type: `string`,
+      type: `string`
     },
-
     firstName: {
       sql: `first_name`,
-      type: `string`,
+      type: `string`
     },
-
     secondName: {
       sql: `second_name`,
-      type: `string`,
+      type: `string`
     },
-
-    positionTypeId: {
-      sql: `position_type_id`,
-      type: `number`,
-    },
-
-    team: {
-      sql: `team`,
-      type: `number`,
-    },
-
     cost: {
       sql: `cost`,
-      type: `number`,
+      type: `number`
     },
-
     selectedByPercent: {
       sql: `selected_by_percent`,
-      type: `string`,
-    },
-
-    minutes: {
-      sql: `minutes`,
-      type: `number`,
-    },
-
-    cleanSheets: {
-      sql: `clean_sheets`,
-      type: `number`,
-    },
-
-    yellowCards: {
-      sql: `yellow_cards`,
-      type: `number`,
-    },
-
-    redCards: {
-      sql: `red_cards`,
-      type: `number`,
-    },
-  },
+      type: `string`
+    }
+  }
 });

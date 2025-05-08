@@ -3,34 +3,43 @@ cube(`Gameweeks`, {
 
   measures: {
     count: {
-      type: `count`,
+      type: `count`
     },
-    averageEntryScore: {
+    avgEntryScore: {
       sql: `average_entry_score`,
-      type: `avg`,
-    },
+      type: `avg`
+    }
   },
 
   dimensions: {
     gameweekId: {
       sql: `gameweek_id`,
       type: `number`,
-      primaryKey: true,
+      primaryKey: true
     },
-
     name: {
       sql: `name`,
-      type: `string`,
+      type: `string`
     },
-
     deadlineTime: {
       sql: `deadline_time`,
-      type: `time`,
+      type: `time`
     },
-
+    isCurrent: {
+      sql: `is_current`,
+      type: `boolean`
+    },
+    isNext: {
+      sql: `is_next`,
+      type: `boolean`
+    },
     finished: {
       sql: `finished`,
-      type: `boolean`,
+      type: `boolean`
+    },
+    dataChecked: {
+      sql: `data_checked`,
+      type: `boolean`
     }
   }
 });

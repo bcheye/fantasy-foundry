@@ -3,35 +3,31 @@ cube(`Teams`, {
 
   measures: {
     count: {
-      type: `count`,
-    },
+      type: `count`
+    }
   },
 
   dimensions: {
     teamId: {
       sql: `team_id`,
       type: `number`,
-      primaryKey: true,
+      primaryKey: true
     },
-
     name: {
       sql: `name`,
-      type: `string`,
+      type: `string`
     },
-
     shortName: {
       sql: `short_name`,
-      type: `string`,
+      type: `string`
     },
-
     strengthOverallHome: {
       sql: `strength_overall_home`,
-      type: `number`,
+      type: `number`
     },
-
     strengthOverallAway: {
       sql: `strength_overall_away`,
-      type: `number`,
-    },
-  },
+      type: `number`
+    }
+  }
 });
