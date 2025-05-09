@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}FantasyFoundry{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<nav style="background: #222; padding: 10px 20px;">
+  <a href="{{ url_for('dashboard') }}" style="color: white; margin-right: 20px; text-decoration: none;">Dashboard</a>
+  <a href="{{ url_for('mini_leagues') }}" style="color: white; text-decoration: none;">Mini Leagues</a>
+</nav>
+
+<header>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="FantasyFoundry Logo">
+  <h1>FantasyFoundry: FPL Analytics Dashboard</h1>
+  <p>Get insights, track top performers, and make data-driven FPL decisions.</p>
+</header>
+
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  Built with ❤️ by Brian · Powered by Cube.js + Flask
+</footer>
+
+</body>
+</html>

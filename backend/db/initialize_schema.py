@@ -1,28 +1,16 @@
 from sqlalchemy import (
-    create_engine, MetaData, Table, Column, Integer, String, Numeric, Boolean, DateTime
+    Table, Column, Integer, String, Numeric, Boolean, DateTime
 )
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.exc import ProgrammingError
-from dotenv import load_dotenv
-import os
+from backend.db.connector import PostgresConnector
 
-load_dotenv()
+# Initialize connection
+db = PostgresConnector(reflect=False)
+engine = db.get_engine()
+metadata = db.get_metadata()
 
-# DB connection
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME")
-
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-engine = create_engine(DATABASE_URL)
-
-# Define schema name
-SCHEMA_NAME = "fpl"
-metadata = MetaData(schema=SCHEMA_NAME)
-
-# Define tables
+# Define tables (schema already set in PostgresConnector)
 players = Table("players", metadata,
     Column("player_id", Integer, primary_key=True),
     Column("first_name", String),
@@ -66,16 +54,37 @@ positions = Table("positions", metadata,
     Column("plural_name", String)
 )
 
+mini_leagues = Table("mini_leagues", metadata,
+    Column("league_id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("created", DateTime, nullable=True)
+)
+
+mini_league_entries = Table("mini_league_entries", metadata,
+    Column("entry_id", Integer, primary_key=True),
+    Column("entry_name", String),
+    Column("player_name", String),
+    Column("rank", Integer),
+    Column("total", Integer),
+    Column("league_id", Integer)
+)
+
+mini_league_gameweek_scores = Table("mini_league_gameweek_scores", metadata,
+    Column("entry_id", Integer, primary_key=True),
+    Column("league_id", Integer),
+    Column("gameweek", Integer, primary_key=True),
+    Column("points", Integer)
+)
+
 if __name__ == "__main__":
-    # First: try to create the schema in an isolated transaction
     try:
         with engine.begin() as conn:
-            conn.execute(CreateSchema(SCHEMA_NAME))
-            print(f"✔ Created schema '{SCHEMA_NAME}'")
+            conn.execute(CreateSchema("fpl"))
+            print("✔ Created schema 'fpl'")
     except ProgrammingError:
-        print(f"ℹ Schema '{SCHEMA_NAME}' already exists — skipping")
+        print("ℹ Schema 'fpl' already exists — skipping")
 
-    # Then: create the tables in a clean, fresh transaction
+    # Then: create all tables
     with engine.begin() as conn:
         metadata.create_all(conn)
         print("✔ All tables created successfully")
