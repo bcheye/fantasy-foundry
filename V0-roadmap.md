@@ -1,13 +1,9 @@
----
-
 ### 📄 `V0-roadmap.md`
 
-```markdown
+
 # 🧱 FantasyFoundry V0 Roadmap
 
 > Goal: Deliver a polished MVP dashboard with key FPL insights
-
----
 
 ## ✅ Must-Have
 
