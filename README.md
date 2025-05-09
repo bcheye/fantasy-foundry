@@ -9,7 +9,7 @@
 - **Python** – ETL scripts to extract and transform FPL data
 - **PostgreSQL** – Centralized relational database
 - **Cube** – Analytics API layer with REST/GraphQL support
-- **React** – Frontend dashboard for data exploration
+- **Flask + Chart.js** – Frontend dashboard for data exploration
 - *(Optional: Docker for deployment, Prefect for scheduling)*
 
 ---
@@ -106,6 +106,7 @@ MIT License – feel free to use, remix, and improve!
 
 ## 🎯 Author
 
-Built by Brian – fueled by FPL obsession & strong coffee ☕
+
+Built with ❤️ by Brian · Powered by FPL, Flask & Cube.js. Fueled by FPL obsession
 
 
