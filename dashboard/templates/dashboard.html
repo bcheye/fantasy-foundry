@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FantasyFoundry Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="FantasyFoundry Logo">
+    <h1>FantasyFoundry: FPL Analytics Dashboard</h1>
+    <p>Get insights, track top performers, and make data-driven FPL decisions.</p>
+  </header>
+
+  <div class="container">
+    <section>
+      <h2>📈 Value Picks: Points vs Cost (Simulated)</h2>
+      <canvas id="valueChart"></canvas>
+    </section>
+
+    <section>
+      <h2>🔥 Most Selected Players</h2>
+      <canvas id="selectedChart"></canvas>
+    </section>
+
+    <section>
+      <h2>⏱️ Players with Most Minutes Played</h2>
+      <canvas id="minutesChart"></canvas>
+    </section>
+  </div>
+
+  <footer>
+    Built with ❤️ by Brian · Powered by Cube.js + Flask
+  </footer>
+
+  <script>
+    const data = {{ data | tojson }};
+
+    new Chart(document.getElementById('valueChart').getContext('2d'), {
+      type: 'scatter',
+      data: {
+        datasets: data.points_vs_cost.map(player => ({
+          label: player["Players.name"],
+          data: [{
+            x: parseFloat(player["Players.totalPoints"]),
+            y: parseFloat(player["Players.totalPoints"]) / 10
+          }]
+        }))
+      },
+      options: {
+        plugins: { title: { display: true, text: 'Points vs Cost Estimate' } },
+        scales: {
+          x: { title: { display: true, text: 'Total Points' }},
+          y: { title: { display: true, text: 'Estimated Cost (M)' }}
+        }
+      }
+    });
+
+    new Chart(document.getElementById('selectedChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: data.most_selected.map(p => p["Players.name"]),
+        datasets: [{
+          label: 'Total Points',
+          data: data.most_selected.map(p => p["Players.totalPoints"]),
+          backgroundColor: 'rgba(54, 162, 235, 0.6)'
+        }]
+      }
+    });
+
+    new Chart(document.getElementById('minutesChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: data.most_minutes.map(p => p["Players.name"]),
+        datasets: [{
+          label: 'Minutes',
+          data: data.most_minutes.map(p => p["Players.minutes"]),
+          backgroundColor: 'rgba(255, 99, 132, 0.6)'
+        }]
+      }
+    });
+  </script>
+</body>
+</html>
