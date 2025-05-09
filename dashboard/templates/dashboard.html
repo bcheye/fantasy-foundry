@@ -49,10 +49,36 @@
       <h2>⏱️ Players with Most Minutes Played</h2>
       <canvas id="minutesChart"></canvas>
     </section>
+
     <section>
       <h2>💰 Best Value Players (Points per Cost)</h2>
       <canvas id="valueScoreChart"></canvas>
     </section>
+
+    <section>
+      <h2>📋 Player Value Table</h2>
+      <table id="valueTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Name</th>
+            <th onclick="sortTable(1)">Points</th>
+            <th onclick="sortTable(2)">Cost</th>
+            <th onclick="sortTable(3)">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in data.value_table %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.points }}</td>
+            <td>{{ p.cost }}</td>
+            <td>{{ p.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
   </div>
 
   <footer>
@@ -124,6 +150,23 @@
         }
       }
     });
+
+  function sortTable(colIndex) {
+    const table = document.getElementById("valueTable");
+    const rows = Array.from(table.rows).slice(1); // exclude header
+    let asc = table.dataset.sortOrder !== "asc";
+    table.dataset.sortOrder = asc ? "asc" : "desc";
+
+    rows.sort((a, b) => {
+      const A = a.cells[colIndex].innerText;
+      const B = b.cells[colIndex].innerText;
+      const valA = isNaN(A) ? A : parseFloat(A);
+      const valB = isNaN(B) ? B : parseFloat(B);
+      return asc ? valA - valB : valB - valA;
+    });
+
+    rows.forEach(row => table.tBodies[0].appendChild(row));
+}
   </script>
 </body>
 </html>

@@ -2,7 +2,6 @@ from flask import Flask, render_template, request
 import requests
 import os
 from dotenv import load_dotenv
-import pprint
 
 load_dotenv()
 
@@ -71,15 +70,34 @@ def dashboard():
     results["value_score"] = []
 
     for row in results["points_vs_cost"]:
-        points = float(row.get("Players.totalPoints", 0))
-        cost = float(row.get("Players.avgCost", 0))
+        points = float(row["Players.totalPoints"])
+        cost = float(row["Players.avgCost"])
         if cost > 0:
             value_score = round(points / cost, 2)
             results["value_score"].append({
                 "name": row["Players.name"],
-                "value_score": value_score
+                "value": value_score
             })
 
+    results["value_score"] = sorted(results["value_score"], key=lambda x: x["value"], reverse=True)[:10]
+
+    results["value_table"] = []
+
+    for row in results["points_vs_cost"]:
+        try:
+            name = row["Players.name"]
+            points = float(row["Players.totalPoints"])
+            cost = float(row["Players.avgCost"])
+            if cost > 0:
+                value = round(points / cost, 2)
+                results["value_table"].append({
+                    "name": name,
+                    "points": int(points),
+                    "cost": round(cost, 2),
+                    "value": value
+                })
+        except (KeyError, ValueError, TypeError):
+            continue
 
     positions = [
         {"id": "1", "name": "Goalkeeper"},
@@ -96,7 +114,6 @@ def dashboard():
         {"id": "16", "name": "Nottingham Forest"}, {"id": "17", "name": "Sheffield United"},
         {"id": "18", "name": "Spurs"}, {"id": "19", "name": "West Ham"}, {"id": "20", "name": "Wolves"}
     ]
-    pprint.pprint(results["points_vs_cost"])
 
     return render_template("dashboard.html", data=results,
                            selected_position=selected_position,

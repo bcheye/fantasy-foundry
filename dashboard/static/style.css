@@ -55,3 +55,20 @@ footer {
   margin-right: 20px;
   padding: 5px;
 }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+thead th {
+  background: #eee;
+  cursor: pointer;
+  padding: 10px;
+}
+
+td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
