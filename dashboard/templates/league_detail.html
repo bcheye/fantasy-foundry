@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}League {{ league_id }} Standings | FantasyFoundry{% endblock %}
+
+{% block content %}
+<h2>🏆 Standings for League {{ league_id }}</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rank</th>
+      <th>Entry Name</th>
+      <th>Total Points</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in standings %}
+    <tr>
+      <td>{{ row["MiniLeagueEntries.rank"] }}</td>
+      <td>{{ row["MiniLeagueEntries.entryName"] }}</td>
+      <td>{{ row["MiniLeagueEntries.totalPoints"] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<hr>
+
+<h3>📊 Gameweek Performance</h3>
+
+<form method="get" style="margin-bottom: 1em;">
+  <input type="hidden" name="league_id" value="{{ league_id }}">
+
+  <label for="gameweek">Gameweek:</label>
+  <select name="gameweek" id="gameweek">
+    <option value="">All</option>
+    {% for gw in range(1, 39) %}
+      <option value="{{ gw }}" {% if selected_gameweek == gw|string %}selected{% endif %}>{{ gw }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="rank">Rank:</label>
+  <select name="rank" id="rank">
+    <option value="">All</option>
+    {% for r in range(1, 6) %}
+      <option value="{{ r }}" {% if selected_rank == r|string %}selected{% endif %}>{{ r }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit">Apply</button>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>Gameweek</th>
+      <th>Entry Name</th>
+      <th>Points</th>
+      <th>Rank</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in gameweek_data %}
+    <tr>
+      <td>{{ row["GameweekWinners.gameweek"] }}</td>
+      <td>{{ row["GameweekWinners.entryName"] }}</td>
+      <td>{{ row["GameweekWinners.points"] }}</td>
+      <td>{{ row["GameweekWinners.rank"] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a href="{{ url_for('mini_leagues') }}">← Back to League Lookup</a>
+{% endblock %}

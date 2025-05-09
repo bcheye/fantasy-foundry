@@ -46,3 +46,11 @@ CREATE TABLE IF NOT EXISTS fpl.players (
     yellow_cards INTEGER,
     red_cards INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS fpl.mini_league_gameweek_scores (
+    entry_id INTEGER,
+    league_id INTEGER,
+    gameweek INTEGER,
+    points INTEGER,
+    PRIMARY KEY (entry_id, gameweek)
+);

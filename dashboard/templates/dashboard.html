@@ -1,172 +1,159 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>FantasyFoundry Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <header>
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="FantasyFoundry Logo">
-    <h1>FantasyFoundry: FPL Analytics Dashboard</h1>
-    <p>Get insights, track top performers, and make data-driven FPL decisions.</p>
-  </header>
+{% extends "base.html" %}
+{% block title %}FantasyFoundry Dashboard{% endblock %}
 
-  <div class="container">
-    <form method="get" class="filter-form">
-      <label for="position">Position:</label>
-      <select name="position" id="position" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for p in positions %}
-          <option value="{{ p.id }}" {% if selected_position == p.id %}selected{% endif %}>
-            {{ p.name }}
-          </option>
-        {% endfor %}
-      </select>
+{% block content %}
 
-      <label for="team">Team:</label>
-      <select name="team" id="team" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for t in teams %}
-          <option value="{{ t.id }}" {% if selected_team == t.id %}selected{% endif %}>
-            {{ t.name }}
-          </option>
-        {% endfor %}
-      </select>
-    </form>
+<form method="get" class="filter-form">
+  <label for="position">Position:</label>
+  <select name="position" id="position" onchange="this.form.submit()">
+    <option value="">All</option>
+    {% for p in positions %}
+      <option value="{{ p.id }}" {% if selected_position == p.id %}selected{% endif %}>
+        {{ p.name }}
+      </option>
+    {% endfor %}
+  </select>
 
-    <section>
-      <h2>📈 Value Picks: Points vs Cost</h2>
-      <canvas id="valueChart"></canvas>
-    </section>
+  <label for="team">Team:</label>
+  <select name="team" id="team" onchange="this.form.submit()">
+    <option value="">All</option>
+    {% for t in teams %}
+      <option value="{{ t.id }}" {% if selected_team == t.id %}selected{% endif %}>
+        {{ t.name }}
+      </option>
+    {% endfor %}
+  </select>
+</form>
 
-    <section>
-      <h2>🔥 Most Selected Players</h2>
-      <canvas id="selectedChart"></canvas>
-    </section>
+<section>
+  <h2>📈 Value Picks: Points vs Cost</h2>
+  <canvas id="valueChart"></canvas>
+</section>
 
-    <section>
-      <h2>⏱️ Players with Most Minutes Played</h2>
-      <canvas id="minutesChart"></canvas>
-    </section>
+<section>
+  <h2>🔥 Most Selected Players</h2>
+  <canvas id="selectedChart"></canvas>
+</section>
 
-    <section>
-      <h2>💰 Best Value Players (Points per Cost)</h2>
-      <canvas id="valueScoreChart"></canvas>
-    </section>
+<section>
+  <h2>⏱️ Players with Most Minutes Played</h2>
+  <canvas id="minutesChart"></canvas>
+</section>
 
-    <section>
-      <h2>📋 Player Value Table</h2>
-      <table id="valueTable">
-        <thead>
-          <tr>
-            <th onclick="sortTable(0)">Name</th>
-            <th onclick="sortTable(1)">Points</th>
-            <th onclick="sortTable(2)">Cost</th>
-            <th onclick="sortTable(3)">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in data.value_table %}
-          <tr>
-            <td>{{ p.name }}</td>
-            <td>{{ p.points }}</td>
-            <td>{{ p.cost }}</td>
-            <td>{{ p.value }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
+<section>
+  <h2>💰 Best Value Players (Points per Cost)</h2>
+  <canvas id="valueScoreChart"></canvas>
+</section>
 
-  </div>
+<section>
+  <h2>📋 Player Value Table</h2>
+  <table id="valueTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Name</th>
+        <th onclick="sortTable(1)">Points</th>
+        <th onclick="sortTable(2)">Cost</th>
+        <th onclick="sortTable(3)">Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in data.value_table %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td>{{ p.points }}</td>
+        <td>{{ p.cost }}</td>
+        <td>{{ p.value }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
-  <footer>
-    Built with ❤️ by Brian · Powered by Cube.js + Flask
-  </footer>
+<script>
+const data = {{ data | tojson }};
 
-  <script>
-    const data = {{ data | tojson }};
+// Points vs Cost
+new Chart(document.getElementById('valueChart').getContext('2d'), {
+  type: 'scatter',
+  data: {
+    datasets: data.points_vs_cost.map(player => ({
+      label: player["Players.name"],
+      data: [{
+        x: parseFloat(player["Players.totalPoints"]),
+        y: parseFloat(player["Players.avgCost"])
+      }]
+    }))
+  },
+  options: {
+    plugins: { title: { display: true, text: 'Total Points vs Cost' } },
+    scales: {
+      x: { title: { display: true, text: 'Total Points' }},
+      y: { title: { display: true, text: 'Cost (Millions)' }}
+    }
+  }
+});
 
-    // Points vs Cost
-    new Chart(document.getElementById('valueChart').getContext('2d'), {
-      type: 'scatter',
-      data: {
-        datasets: data.points_vs_cost.map(player => ({
-          label: player["Players.name"],
-          data: [{
-            x: parseFloat(player["Players.totalPoints"]),
-            y: parseFloat(player["Players.avgCost"])
-          }]
-        }))
-      },
-      options: {
-        plugins: { title: { display: true, text: 'Total Points vs Cost' } },
-        scales: {
-          x: { title: { display: true, text: 'Total Points' }},
-          y: { title: { display: true, text: 'Cost (Millions)' }}
-        }
-      }
-    });
+// Most Selected
+new Chart(document.getElementById('selectedChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: data.most_selected.map(p => p["Players.name"]),
+    datasets: [{
+      label: 'Total Points',
+      data: data.most_selected.map(p => p["Players.totalPoints"]),
+      backgroundColor: 'rgba(54, 162, 235, 0.6)'
+    }]
+  }
+});
 
-    new Chart(document.getElementById('selectedChart').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: data.most_selected.map(p => p["Players.name"]),
-        datasets: [{
-          label: 'Total Points',
-          data: data.most_selected.map(p => p["Players.totalPoints"]),
-          backgroundColor: 'rgba(54, 162, 235, 0.6)'
-        }]
-      }
-    });
+// Most Minutes
+new Chart(document.getElementById('minutesChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: data.most_minutes.map(p => p["Players.name"]),
+    datasets: [{
+      label: 'Minutes',
+      data: data.most_minutes.map(p => p["Players.minutes"]),
+      backgroundColor: 'rgba(255, 99, 132, 0.6)'
+    }]
+  }
+});
 
-    new Chart(document.getElementById('minutesChart').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: data.most_minutes.map(p => p["Players.name"]),
-        datasets: [{
-          label: 'Minutes',
-          data: data.most_minutes.map(p => p["Players.minutes"]),
-          backgroundColor: 'rgba(255, 99, 132, 0.6)'
-        }]
-      }
-    });
+// Value Score
+new Chart(document.getElementById('valueScoreChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: data.value_score.map(p => p.name),
+    datasets: [{
+      label: 'Value Score (Points / Cost)',
+      data: data.value_score.map(p => p.value),
+      backgroundColor: 'rgba(75, 192, 75, 0.6)'
+    }]
+  },
+  options: {
+    plugins: { title: { display: true, text: 'Points per Million (Value Score)' } },
+    scales: {
+      y: { beginAtZero: true, title: { display: true, text: 'Value' } }
+    }
+  }
+});
 
-    new Chart(document.getElementById('valueScoreChart').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: data.value_score.map(p => p.name),
-        datasets: [{
-          label: 'Value Score (Points / Cost)',
-          data: data.value_score.map(p => p.value),
-          backgroundColor: 'rgba(75, 192, 75, 0.6)'
-        }]
-      },
-      options: {
-        plugins: { title: { display: true, text: 'Points per Million (Value Score)' } },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Value' } }
-        }
-      }
-    });
+function sortTable(colIndex) {
+  const table = document.getElementById("valueTable");
+  const rows = Array.from(table.rows).slice(1); // exclude header
+  let asc = table.dataset.sortOrder !== "asc";
+  table.dataset.sortOrder = asc ? "asc" : "desc";
 
-  function sortTable(colIndex) {
-    const table = document.getElementById("valueTable");
-    const rows = Array.from(table.rows).slice(1); // exclude header
-    let asc = table.dataset.sortOrder !== "asc";
-    table.dataset.sortOrder = asc ? "asc" : "desc";
+  rows.sort((a, b) => {
+    const A = a.cells[colIndex].innerText;
+    const B = b.cells[colIndex].innerText;
+    const valA = isNaN(A) ? A : parseFloat(A);
+    const valB = isNaN(B) ? B : parseFloat(B);
+    return asc ? valA - valB : valB - valA;
+  });
 
-    rows.sort((a, b) => {
-      const A = a.cells[colIndex].innerText;
-      const B = b.cells[colIndex].innerText;
-      const valA = isNaN(A) ? A : parseFloat(A);
-      const valB = isNaN(B) ? B : parseFloat(B);
-      return asc ? valA - valB : valB - valA;
-    });
-
-    rows.forEach(row => table.tBodies[0].appendChild(row));
+  rows.forEach(row => table.tBodies[0].appendChild(row));
 }
-  </script>
-</body>
-</html>
+</script>
+
+{% endblock %}

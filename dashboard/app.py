@@ -121,5 +121,83 @@ def dashboard():
                            positions=positions,
                            teams=teams)
 
+@app.route("/leagues")
+def mini_leagues():
+    return render_template("leagues.html")
+
+@app.route("/league")
+def league_detail():
+    league_id = request.args.get("league_id")
+    if not league_id:
+        return "No league ID provided", 400
+
+    headers = {
+        "Authorization": f"Bearer {CUBE_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # === Standings Query ===
+    standings_query = {
+        "measures": ["MiniLeagueEntries.totalPoints"],
+        "dimensions": ["MiniLeagueEntries.entryName", "MiniLeagueEntries.rank"],
+        "filters": [{
+            "member": "MiniLeagueEntries.leagueId",
+            "operator": "equals",
+            "values": [league_id]
+        }],
+        "order": { "MiniLeagueEntries.rank": "asc" },
+        "limit": 50
+    }
+
+    standings_res = requests.post(CUBE_API_URL, headers=headers, json={"query": standings_query})
+    standings_res.raise_for_status()
+    standings = standings_res.json().get("data", [])
+
+    # === Gameweek Performance Query ===
+    selected_gameweek = request.args.get("gameweek")
+    selected_rank = request.args.get("rank")
+
+    gw_filters = [{
+        "member": "GameweekWinners.leagueId",
+        "operator": "equals",
+        "values": [league_id]
+    }]
+    if selected_gameweek:
+        gw_filters.append({
+            "member": "GameweekWinners.gameweek",
+            "operator": "equals",
+            "values": [selected_gameweek]
+        })
+    if selected_rank:
+        gw_filters.append({
+            "member": "GameweekWinners.rank",
+            "operator": "equals",
+            "values": [selected_rank]
+        })
+
+    gameweek_query = {
+        "measures": ["GameweekWinners.points"],
+        "dimensions": ["GameweekWinners.entryName", "GameweekWinners.gameweek", "GameweekWinners.rank"],
+        "filters": gw_filters,
+        "order": {
+            "GameweekWinners.gameweek": "asc",
+            "GameweekWinners.rank": "asc"
+        },
+        "limit": 200
+    }
+
+    gw_res = requests.post(CUBE_API_URL, headers=headers, json={"query": gameweek_query})
+    gw_res.raise_for_status()
+    gameweek_data = gw_res.json().get("data", [])
+
+    return render_template(
+        "league_detail.html",
+        league_id=league_id,
+        standings=standings,
+        gameweek_data=gameweek_data,
+        selected_gameweek=selected_gameweek,
+        selected_rank=selected_rank
+    )
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=50001)

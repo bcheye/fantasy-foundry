@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Mini Leagues | FantasyFoundry{% endblock %}
+
+{% block content %}
+<h2>🏆 View a Mini League</h2>
+<form action="{{ url_for('league_detail') }}" method="get">
+  <label for="league_id">Enter League ID:</label>
+  <input type="number" name="league_id" required>
+  <button type="submit">View League</button>
+</form>
+{% endblock %}
