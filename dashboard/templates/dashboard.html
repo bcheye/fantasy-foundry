@@ -13,8 +13,30 @@
   </header>
 
   <div class="container">
+    <form method="get" class="filter-form">
+      <label for="position">Position:</label>
+      <select name="position" id="position" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for p in positions %}
+          <option value="{{ p.id }}" {% if selected_position == p.id %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <label for="team">Team:</label>
+      <select name="team" id="team" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for t in teams %}
+          <option value="{{ t.id }}" {% if selected_team == t.id %}selected{% endif %}>
+            {{ t.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </form>
+
     <section>
-      <h2>📈 Value Picks: Points vs Cost (Simulated)</h2>
+      <h2>📈 Value Picks: Points vs Cost</h2>
       <canvas id="valueChart"></canvas>
     </section>
 
@@ -27,6 +49,10 @@
       <h2>⏱️ Players with Most Minutes Played</h2>
       <canvas id="minutesChart"></canvas>
     </section>
+    <section>
+      <h2>💰 Best Value Players (Points per Cost)</h2>
+      <canvas id="valueScoreChart"></canvas>
+    </section>
   </div>
 
   <footer>
@@ -36,6 +62,7 @@
   <script>
     const data = {{ data | tojson }};
 
+    // Points vs Cost
     new Chart(document.getElementById('valueChart').getContext('2d'), {
       type: 'scatter',
       data: {
@@ -43,15 +70,15 @@
           label: player["Players.name"],
           data: [{
             x: parseFloat(player["Players.totalPoints"]),
-            y: parseFloat(player["Players.totalPoints"]) / 10
+            y: parseFloat(player["Players.avgCost"])
           }]
         }))
       },
       options: {
-        plugins: { title: { display: true, text: 'Points vs Cost Estimate' } },
+        plugins: { title: { display: true, text: 'Total Points vs Cost' } },
         scales: {
           x: { title: { display: true, text: 'Total Points' }},
-          y: { title: { display: true, text: 'Estimated Cost (M)' }}
+          y: { title: { display: true, text: 'Cost (Millions)' }}
         }
       }
     });
@@ -77,6 +104,24 @@
           data: data.most_minutes.map(p => p["Players.minutes"]),
           backgroundColor: 'rgba(255, 99, 132, 0.6)'
         }]
+      }
+    });
+
+    new Chart(document.getElementById('valueScoreChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: data.value_score.map(p => p.name),
+        datasets: [{
+          label: 'Value Score (Points / Cost)',
+          data: data.value_score.map(p => p.value),
+          backgroundColor: 'rgba(75, 192, 75, 0.6)'
+        }]
+      },
+      options: {
+        plugins: { title: { display: true, text: 'Points per Million (Value Score)' } },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Value' } }
+        }
       }
     });
   </script>
