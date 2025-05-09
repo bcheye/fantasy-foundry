@@ -13,8 +13,30 @@
   </header>
 
   <div class="container">
+    <form method="get" class="filter-form">
+      <label for="position">Position:</label>
+      <select name="position" id="position" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for p in positions %}
+          <option value="{{ p.id }}" {% if selected_position == p.id %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <label for="team">Team:</label>
+      <select name="team" id="team" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for t in teams %}
+          <option value="{{ t.id }}" {% if selected_team == t.id %}selected{% endif %}>
+            {{ t.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </form>
+
     <section>
-      <h2>📈 Value Picks: Points vs Cost (Simulated)</h2>
+      <h2>📈 Value Picks: Points vs Cost</h2>
       <canvas id="valueChart"></canvas>
     </section>
 
@@ -27,6 +49,36 @@
       <h2>⏱️ Players with Most Minutes Played</h2>
       <canvas id="minutesChart"></canvas>
     </section>
+
+    <section>
+      <h2>💰 Best Value Players (Points per Cost)</h2>
+      <canvas id="valueScoreChart"></canvas>
+    </section>
+
+    <section>
+      <h2>📋 Player Value Table</h2>
+      <table id="valueTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Name</th>
+            <th onclick="sortTable(1)">Points</th>
+            <th onclick="sortTable(2)">Cost</th>
+            <th onclick="sortTable(3)">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in data.value_table %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.points }}</td>
+            <td>{{ p.cost }}</td>
+            <td>{{ p.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
   </div>
 
   <footer>
@@ -36,6 +88,7 @@
   <script>
     const data = {{ data | tojson }};
 
+    // Points vs Cost
     new Chart(document.getElementById('valueChart').getContext('2d'), {
       type: 'scatter',
       data: {
@@ -43,15 +96,15 @@
           label: player["Players.name"],
           data: [{
             x: parseFloat(player["Players.totalPoints"]),
-            y: parseFloat(player["Players.totalPoints"]) / 10
+            y: parseFloat(player["Players.avgCost"])
           }]
         }))
       },
       options: {
-        plugins: { title: { display: true, text: 'Points vs Cost Estimate' } },
+        plugins: { title: { display: true, text: 'Total Points vs Cost' } },
         scales: {
           x: { title: { display: true, text: 'Total Points' }},
-          y: { title: { display: true, text: 'Estimated Cost (M)' }}
+          y: { title: { display: true, text: 'Cost (Millions)' }}
         }
       }
     });
@@ -79,6 +132,41 @@
         }]
       }
     });
+
+    new Chart(document.getElementById('valueScoreChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: data.value_score.map(p => p.name),
+        datasets: [{
+          label: 'Value Score (Points / Cost)',
+          data: data.value_score.map(p => p.value),
+          backgroundColor: 'rgba(75, 192, 75, 0.6)'
+        }]
+      },
+      options: {
+        plugins: { title: { display: true, text: 'Points per Million (Value Score)' } },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Value' } }
+        }
+      }
+    });
+
+  function sortTable(colIndex) {
+    const table = document.getElementById("valueTable");
+    const rows = Array.from(table.rows).slice(1); // exclude header
+    let asc = table.dataset.sortOrder !== "asc";
+    table.dataset.sortOrder = asc ? "asc" : "desc";
+
+    rows.sort((a, b) => {
+      const A = a.cells[colIndex].innerText;
+      const B = b.cells[colIndex].innerText;
+      const valA = isNaN(A) ? A : parseFloat(A);
+      const valB = isNaN(B) ? B : parseFloat(B);
+      return asc ? valA - valB : valB - valA;
+    });
+
+    rows.forEach(row => table.tBodies[0].appendChild(row));
+}
   </script>
 </body>
 </html>
