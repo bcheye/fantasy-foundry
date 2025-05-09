@@ -32,8 +32,8 @@ gameweek_id,name,deadline_time,average_entry_score,finished,data_checked,is_curr
 31,Gameweek 31,2025-04-05T10:00:00Z,34,True,True,False,False
 32,Gameweek 32,2025-04-12T10:00:00Z,56,True,True,False,False
 33,Gameweek 33,2025-04-19T12:30:00Z,56,True,True,False,False
-34,Gameweek 34,2025-04-26T10:00:00Z,38,False,False,True,False
-35,Gameweek 35,2025-05-02T17:30:00Z,0,False,False,False,True
-36,Gameweek 36,2025-05-10T12:30:00Z,0,False,False,False,False
-37,Gameweek 37,2025-05-16T17:30:00Z,0,False,False,False,False
+34,Gameweek 34,2025-04-26T10:00:00Z,47,True,True,False,False
+35,Gameweek 35,2025-05-02T17:30:00Z,41,True,True,True,False
+36,Gameweek 36,2025-05-10T12:30:00Z,0,False,False,False,True
+37,Gameweek 37,2025-05-16T17:00:00Z,0,False,False,False,False
 38,Gameweek 38,2025-05-25T13:30:00Z,0,False,False,False,False
