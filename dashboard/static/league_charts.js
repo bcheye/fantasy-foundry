@@ -1,5 +1,6 @@
+// === Utilities ===
 const rawData = window.leagueData || [];
-const gameweeks = [...new Set(rawData.map(r => r["GameweekWinners.gameweek"]))].sort((a, b) => a - b);
+const gameweeks = [...new Set(rawData.map(r => r["GameweekWinners.gameweek"]))].sort((a, b) => Number(a) - Number(b));
 
 function groupBy(arr, keyFn) {
   return arr.reduce((acc, row) => {
@@ -9,6 +10,16 @@ function groupBy(arr, keyFn) {
     return acc;
   }, {});
 }
+
+// === Color Map for Consistency ===
+const entryColors = {};
+const getColor = (name) => {
+  if (!entryColors[name]) {
+    const hue = Object.keys(entryColors).length * 137.508;
+    entryColors[name] = `hsl(${hue % 360}, 60%, 65%)`;
+  }
+  return entryColors[name];
+};
 
 // === Dynamic Line Charts: Points and Rank ===
 let pointsChart, ranksChart;
@@ -20,7 +31,7 @@ function drawFilteredCharts(selectedEntries) {
   if (pointsChart) pointsChart.destroy();
   if (ranksChart) ranksChart.destroy();
 
-  // Points
+  // Points Line Chart
   pointsChart = new Chart(document.getElementById('linePoints').getContext('2d'), {
     type: 'line',
     data: {
@@ -32,10 +43,13 @@ function drawFilteredCharts(selectedEntries) {
           return found ? found["GameweekWinners.points"] : null;
         }),
         tension: 0.3,
-        fill: false
+        fill: false,
+        borderColor: getColor(name),
+        backgroundColor: getColor(name),
       }))
     },
     options: {
+      spanGaps: true,
       plugins: { title: { display: true, text: 'Points per Gameweek' } },
       scales: {
         y: { title: { display: true, text: 'Points' } },
@@ -44,7 +58,7 @@ function drawFilteredCharts(selectedEntries) {
     }
   });
 
-  // Ranks
+  // Rank Line Chart
   ranksChart = new Chart(document.getElementById('lineRanks').getContext('2d'), {
     type: 'line',
     data: {
@@ -56,10 +70,13 @@ function drawFilteredCharts(selectedEntries) {
           return found ? found["GameweekWinners.rank"] : null;
         }),
         tension: 0.3,
-        fill: false
+        fill: false,
+        borderColor: getColor(name),
+        backgroundColor: getColor(name),
       }))
     },
     options: {
+      spanGaps: true,
       plugins: { title: { display: true, text: 'Rank Over Time (Lower is Better)' } },
       scales: {
         y: { reverse: true, title: { display: true, text: 'Rank' } },
@@ -70,12 +87,12 @@ function drawFilteredCharts(selectedEntries) {
 }
 
 // === Entry Filter Initialization ===
+let choices;
 document.addEventListener("DOMContentLoaded", () => {
-  const choices = new Choices("#entryFilter", {
+  choices = new Choices("#entryFilter", {
     removeItemButton: true,
     placeholderValue: 'Select entries...',
-    searchPlaceholderValue: 'Type to search...',
-    classNames: { containerOuter: 'choices fancy-dropdown' }
+    searchPlaceholderValue: 'Type to search...'
   });
 
   const grouped = groupBy(rawData, r => r["GameweekWinners.entryName"]);
@@ -88,8 +105,8 @@ document.addEventListener("DOMContentLoaded", () => {
   choices.setChoiceByValue(top3);
   drawFilteredCharts(top3);
 
-  document.getElementById("entryFilter").addEventListener("change", function () {
-    const selected = Array.from(this.selectedOptions).map(opt => opt.value);
+  document.getElementById("applyEntryFilter").addEventListener("click", function () {
+    const selected = choices.getValue(true); // get raw values from Choices.js
     if (selected.length) drawFilteredCharts(selected);
   });
 });
@@ -142,7 +159,7 @@ new Chart(document.getElementById('heatmap').getContext('2d'), {
         return found ? found["GameweekWinners.points"] : 0;
       }),
       stack: 'heatmap',
-      backgroundColor: () => `hsl(${Math.random() * 360}, 60%, 70%)`
+      backgroundColor: getColor(name)
     }))
   },
   options: {
@@ -180,7 +197,9 @@ new Chart(document.getElementById('topNLeaderboard').getContext('2d'), {
         return found ? found.points : null;
       }),
       fill: false,
-      tension: 0.3
+      tension: 0.3,
+      borderColor: getColor(name),
+      backgroundColor: getColor(name)
     }))
   },
   options: {
@@ -191,6 +210,7 @@ new Chart(document.getElementById('topNLeaderboard').getContext('2d'), {
     }
   }
 });
+
 
 // === Pagination ===
 function paginateTable(tableId, rowsPerPage = 10) {
@@ -232,5 +252,4 @@ function paginateTable(tableId, rowsPerPage = 10) {
 document.addEventListener("DOMContentLoaded", function () {
   paginateTable("standingsTable", 15);
   paginateTable("gameweekTable", 15);
-  paginateTable("valueTable", 15);
 });

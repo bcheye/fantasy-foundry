@@ -148,6 +148,17 @@ tbody tr:hover {
   margin-bottom: 1em;
 }
 
+#applyEntryFilter {
+  margin-top: 0.5em;
+  margin-left: 1em;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
 /* === CHOICES.JS OVERRIDES === */
 .choices.fancy-dropdown {
   max-width: 400px;

@@ -74,12 +74,19 @@
 <h3>📈 Visualizations</h3>
 
 <label for="entryFilter"><strong>🎯 Select Entries to Compare:</strong></label>
+{% set ns = namespace(seen=[]) %}
+
 <select id="entryFilter" multiple>
   {% for row in standings %}
-    <option value="{{ row['MiniLeagueEntries.entryName'] }}">{{ row['MiniLeagueEntries.entryName'] }}</option>
+    {% set entry = row['MiniLeagueEntries.entryName'] %}
+    {% if entry not in ns.seen %}
+      <option value="{{ entry }}">{{ entry }}</option>
+      {% set _ = ns.seen.append(entry) %}
+    {% endif %}
   {% endfor %}
 </select>
-<small class='hint'> Tip: Hold Ctrl (or Cmd) to select multiple entries.</small>
+<button id="applyEntryFilter" type="button">Apply</button>
+<small class="hint">Tip: You can select multiple entries in the dropdown above.</small>
 
 <canvas id="linePoints" height="100"></canvas>
 <br>
