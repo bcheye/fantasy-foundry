@@ -25,50 +25,52 @@
 
 <hr>
 
-<h3>📊 Gameweek Performance</h3>
+<section>
+  <h3>📊 Gameweek Performance</h3>
 
-<form method="get" style="margin-bottom: 1em;">
-  <input type="hidden" name="league_id" value="{{ league_id }}">
+  <form method="get" style="margin-bottom: 1em;">
+    <input type="hidden" name="league_id" value="{{ league_id }}">
 
-  <label for="gameweek">Gameweek:</label>
-  <select name="gameweek" id="gameweek">
-    <option value="">All</option>
-    {% for gw in range(1, 39) %}
-      <option value="{{ gw }}" {% if selected_gameweek == gw|string %}selected{% endif %}>{{ gw }}</option>
-    {% endfor %}
-  </select>
+    <label for="gameweek">Gameweek:</label>
+    <select name="gameweek" id="gameweek">
+      <option value="">All</option>
+      {% for gw in range(1, 39) %}
+        <option value="{{ gw }}" {% if selected_gameweek == gw|string %}selected{% endif %}>{{ gw }}</option>
+      {% endfor %}
+    </select>
 
-  <label for="rank">Rank:</label>
-  <select name="rank" id="rank">
-    <option value="">All</option>
-    {% for r in range(1, 6) %}
-      <option value="{{ r }}" {% if selected_rank == r|string %}selected{% endif %}>{{ r }}</option>
-    {% endfor %}
-  </select>
+    <label for="rank">Rank:</label>
+    <select name="rank" id="rank">
+      <option value="">All</option>
+      {% for r in range(1, 6) %}
+        <option value="{{ r }}" {% if selected_rank == r|string %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
 
-  <button type="submit">Apply</button>
-</form>
+    <button type="submit">Apply</button>
+  </form>
 
-<table id="gameweekTable" class="paginated">
-  <thead>
-    <tr>
-      <th>Gameweek</th>
-      <th>Entry Name</th>
-      <th>Points</th>
-      <th>Rank</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in gameweek_data %}
-    <tr>
-      <td>{{ row["GameweekWinners.gameweek"] }}</td>
-      <td>{{ row["GameweekWinners.entryName"] }}</td>
-      <td>{{ row["GameweekWinners.points"] }}</td>
-      <td>{{ row["GameweekWinners.rank"] }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+  <table id="gameweekTable" class="paginated">
+    <thead>
+      <tr>
+        <th>Gameweek</th>
+        <th>Entry Name</th>
+        <th>Points</th>
+        <th>Rank</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in gameweek_data %}
+      <tr>
+        <td>{{ row["GameweekWinners.gameweek"] }}</td>
+        <td>{{ row["GameweekWinners.entryName"] }}</td>
+        <td>{{ row["GameweekWinners.points"] }}</td>
+        <td>{{ row["GameweekWinners.rank"] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
 <hr>
 <h3>📈 Visualizations</h3>
@@ -102,7 +104,7 @@
 
 <!-- Load Chart.js and Choices.js (already included in base.html) -->
 <script>
-  window.leagueData = {{ gameweek_data | tojson }};
+  window.leagueData = {{ full_gameweek_data | tojson }};
 </script>
 <script src="{{ url_for('static', filename='league_charts.js') }}"></script>
 {% endblock %}
