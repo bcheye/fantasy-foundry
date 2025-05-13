@@ -10,6 +10,7 @@ app = Flask(__name__)
 CUBE_API_URL = "http://localhost:4000/cubejs-api/v1/load"
 CUBE_API_TOKEN = os.getenv("CUBE_API_TOKEN", "sandbox")
 
+
 @app.route("/")
 def dashboard():
     headers = {"Authorization": f"Bearer {CUBE_API_TOKEN}"}
@@ -68,7 +69,6 @@ def dashboard():
         results[key] = r.json().get("data", [])
 
     results["value_score"] = []
-
     for row in results["points_vs_cost"]:
         points = float(row["Players.totalPoints"])
         cost = float(row["Players.avgCost"])
@@ -78,11 +78,9 @@ def dashboard():
                 "name": row["Players.name"],
                 "value": value_score
             })
-
     results["value_score"] = sorted(results["value_score"], key=lambda x: x["value"], reverse=True)[:10]
 
     results["value_table"] = []
-
     for row in results["points_vs_cost"]:
         try:
             name = row["Players.name"]
@@ -121,9 +119,11 @@ def dashboard():
                            positions=positions,
                            teams=teams)
 
+
 @app.route("/leagues")
 def mini_leagues():
     return render_template("leagues.html")
+
 
 @app.route("/league")
 def league_detail():
@@ -139,21 +139,42 @@ def league_detail():
     # === Standings Query ===
     standings_query = {
         "measures": ["MiniLeagueEntries.totalPoints"],
-        "dimensions": ["MiniLeagueEntries.entryName", "MiniLeagueEntries.rank"],
+        "dimensions": ["MiniLeagueEntries.entryName", "MiniLeagueEntries.rank", "MiniLeagues.leagueName"],
         "filters": [{
             "member": "MiniLeagueEntries.leagueId",
             "operator": "equals",
             "values": [league_id]
         }],
-        "order": { "MiniLeagueEntries.rank": "asc" },
+        "order": {"MiniLeagueEntries.rank": "asc"},
         "limit": 50
     }
 
     standings_res = requests.post(CUBE_API_URL, headers=headers, json={"query": standings_query})
     standings_res.raise_for_status()
     standings = standings_res.json().get("data", [])
+    league_name = standings[0]["MiniLeagues.leagueName"] if standings else "Unknown League"
 
-    # === Gameweek Performance Query ===
+    # === Full Gameweek Data (for visualizations) ===
+    all_gw_query = {
+        "measures": ["GameweekWinners.points"],
+        "dimensions": ["GameweekWinners.entryName", "GameweekWinners.gameweek", "GameweekWinners.rank"],
+        "filters": [{
+            "member": "GameweekWinners.leagueId",
+            "operator": "equals",
+            "values": [league_id]
+        }],
+        "order": {
+            "GameweekWinners.gameweek": "asc",
+            "GameweekWinners.rank": "asc"
+        },
+        "limit": 2000
+    }
+
+    all_gw_res = requests.post(CUBE_API_URL, headers=headers, json={"query": all_gw_query})
+    all_gw_res.raise_for_status()
+    full_gameweek_data = [{**row, "GameweekWinners.gameweek": int(row["GameweekWinners.gameweek"])} for row in all_gw_res.json().get("data", [])]
+
+    # === Filtered Gameweek Data (for table) ===
     selected_gameweek = request.args.get("gameweek")
     selected_rank = request.args.get("rank")
 
@@ -188,16 +209,19 @@ def league_detail():
 
     gw_res = requests.post(CUBE_API_URL, headers=headers, json={"query": gameweek_query})
     gw_res.raise_for_status()
-    gameweek_data = gw_res.json().get("data", [])
+    gameweek_data = [{**row, "GameweekWinners.gameweek": int(row["GameweekWinners.gameweek"])} for row in gw_res.json().get("data", [])]
 
     return render_template(
         "league_detail.html",
         league_id=league_id,
+        league_name=league_name,
         standings=standings,
-        gameweek_data=gameweek_data,
+        gameweek_data=gameweek_data,              # for Gameweek Table
+        full_gameweek_data=full_gameweek_data,    # for JS charts
         selected_gameweek=selected_gameweek,
         selected_rank=selected_rank
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=50001)

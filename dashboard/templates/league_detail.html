@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}League {{ league_id }} Standings | FantasyFoundry{% endblock %}
+{% block title %}League {{ league_name }} Standings | FantasyFoundry{% endblock %}
 
 {% block content %}
-<h2>🏆 Standings for League {{ league_id }}</h2>
+<h2>🏆 Standings for League {{ league_name }}</h2>
 
-<table>
+<table id="standingsTable" class="paginated">
   <thead>
     <tr>
       <th>Rank</th>
@@ -25,50 +25,86 @@
 
 <hr>
 
-<h3>📊 Gameweek Performance</h3>
+<section>
+  <h3>📊 Gameweek Performance</h3>
 
-<form method="get" style="margin-bottom: 1em;">
-  <input type="hidden" name="league_id" value="{{ league_id }}">
+  <form method="get" style="margin-bottom: 1em;">
+    <input type="hidden" name="league_id" value="{{ league_id }}">
 
-  <label for="gameweek">Gameweek:</label>
-  <select name="gameweek" id="gameweek">
-    <option value="">All</option>
-    {% for gw in range(1, 39) %}
-      <option value="{{ gw }}" {% if selected_gameweek == gw|string %}selected{% endif %}>{{ gw }}</option>
-    {% endfor %}
-  </select>
+    <label for="gameweek">Gameweek:</label>
+    <select name="gameweek" id="gameweek">
+      <option value="">All</option>
+      {% for gw in range(1, 39) %}
+        <option value="{{ gw }}" {% if selected_gameweek == gw|string %}selected{% endif %}>{{ gw }}</option>
+      {% endfor %}
+    </select>
 
-  <label for="rank">Rank:</label>
-  <select name="rank" id="rank">
-    <option value="">All</option>
-    {% for r in range(1, 6) %}
-      <option value="{{ r }}" {% if selected_rank == r|string %}selected{% endif %}>{{ r }}</option>
-    {% endfor %}
-  </select>
+    <label for="rank">Rank:</label>
+    <select name="rank" id="rank">
+      <option value="">All</option>
+      {% for r in range(1, 6) %}
+        <option value="{{ r }}" {% if selected_rank == r|string %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
 
-  <button type="submit">Apply</button>
-</form>
+    <button type="submit">Apply</button>
+  </form>
 
-<table>
-  <thead>
-    <tr>
-      <th>Gameweek</th>
-      <th>Entry Name</th>
-      <th>Points</th>
-      <th>Rank</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in gameweek_data %}
-    <tr>
-      <td>{{ row["GameweekWinners.gameweek"] }}</td>
-      <td>{{ row["GameweekWinners.entryName"] }}</td>
-      <td>{{ row["GameweekWinners.points"] }}</td>
-      <td>{{ row["GameweekWinners.rank"] }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+  <table id="gameweekTable" class="paginated">
+    <thead>
+      <tr>
+        <th>Gameweek</th>
+        <th>Entry Name</th>
+        <th>Points</th>
+        <th>Rank</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in gameweek_data %}
+      <tr>
+        <td>{{ row["GameweekWinners.gameweek"] }}</td>
+        <td>{{ row["GameweekWinners.entryName"] }}</td>
+        <td>{{ row["GameweekWinners.points"] }}</td>
+        <td>{{ row["GameweekWinners.rank"] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<hr>
+<h3>📈 Visualizations</h3>
+
+<label for="entryFilter"><strong>🎯 Select Entries to Compare:</strong></label>
+{% set ns = namespace(seen=[]) %}
+
+<select id="entryFilter" multiple>
+  {% for row in standings %}
+    {% set entry = row['MiniLeagueEntries.entryName'] %}
+    {% if entry not in ns.seen %}
+      <option value="{{ entry }}">{{ entry }}</option>
+      {% set _ = ns.seen.append(entry) %}
+    {% endif %}
+  {% endfor %}
+</select>
+<button id="applyEntryFilter" type="button">Apply</button>
+<small class="hint">Tip: You can select multiple entries in the dropdown above.</small>
+
+<canvas id="linePoints" height="100"></canvas>
+<br>
+<canvas id="lineRanks" height="100"></canvas>
+<br>
+<canvas id="barWinners" height="100"></canvas>
+<br>
+<canvas id="heatmap" height="200"></canvas>
+<br>
+<canvas id="topNLeaderboard" height="100"></canvas>
 
 <a href="{{ url_for('mini_leagues') }}">← Back to League Lookup</a>
+
+<!-- Load Chart.js and Choices.js (already included in base.html) -->
+<script>
+  window.leagueData = {{ full_gameweek_data | tojson }};
+</script>
+<script src="{{ url_for('static', filename='league_charts.js') }}"></script>
 {% endblock %}

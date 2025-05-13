@@ -111,7 +111,7 @@ def find_gameweek_winner(league_id, gameweek):
         print("Error decoding JSON response for league standings.")
 
 def find_all_gameweek_winners(league_id):
-    for gameweek in range(1, 39):
+    for gameweek in range(36, 39):
         print(f"\n--- Gameweek {gameweek} ---")
         find_gameweek_winner(league_id, gameweek)
 

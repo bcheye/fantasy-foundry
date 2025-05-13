@@ -11,7 +11,7 @@ cube(`MiniLeagues`, {
   measures: {
     count: {
       type: `count`,
-      drillMembers: [name]
+      drillMembers: [leagueName]
     }
   },
 
@@ -22,7 +22,7 @@ cube(`MiniLeagues`, {
       primaryKey: true
     },
 
-    name: {
+    leagueName: {
       sql: `name`,
       type: `string`
     },
