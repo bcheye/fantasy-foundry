@@ -4,7 +4,7 @@
 {% block content %}
 <h2>🏆 Standings for League {{ league_id }}</h2>
 
-<table>
+<table id="standingsTable" class="paginated">
   <thead>
     <tr>
       <th>Rank</th>
@@ -49,7 +49,7 @@
   <button type="submit">Apply</button>
 </form>
 
-<table>
+<table id="gameweekTable" class="paginated">
   <thead>
     <tr>
       <th>Gameweek</th>
@@ -70,5 +70,32 @@
   </tbody>
 </table>
 
+<hr>
+<h3>📈 Visualizations</h3>
+
+<label for="entryFilter"><strong>🎯 Select Entries to Compare:</strong></label>
+<select id="entryFilter" multiple>
+  {% for row in standings %}
+    <option value="{{ row['MiniLeagueEntries.entryName'] }}">{{ row['MiniLeagueEntries.entryName'] }}</option>
+  {% endfor %}
+</select>
+<small class='hint'> Tip: Hold Ctrl (or Cmd) to select multiple entries.</small>
+
+<canvas id="linePoints" height="100"></canvas>
+<br>
+<canvas id="lineRanks" height="100"></canvas>
+<br>
+<canvas id="barWinners" height="100"></canvas>
+<br>
+<canvas id="heatmap" height="200"></canvas>
+<br>
+<canvas id="topNLeaderboard" height="100"></canvas>
+
 <a href="{{ url_for('mini_leagues') }}">← Back to League Lookup</a>
+
+<!-- Load Chart.js and Choices.js (already included in base.html) -->
+<script>
+  window.leagueData = {{ gameweek_data | tojson }};
+</script>
+<script src="{{ url_for('static', filename='league_charts.js') }}"></script>
 {% endblock %}
