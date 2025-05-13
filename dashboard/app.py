@@ -139,7 +139,7 @@ def league_detail():
     # === Standings Query ===
     standings_query = {
         "measures": ["MiniLeagueEntries.totalPoints"],
-        "dimensions": ["MiniLeagueEntries.entryName", "MiniLeagueEntries.rank"],
+        "dimensions": ["MiniLeagueEntries.entryName", "MiniLeagueEntries.rank", "MiniLeagues.leagueName"],
         "filters": [{
             "member": "MiniLeagueEntries.leagueId",
             "operator": "equals",
@@ -152,6 +152,7 @@ def league_detail():
     standings_res = requests.post(CUBE_API_URL, headers=headers, json={"query": standings_query})
     standings_res.raise_for_status()
     standings = standings_res.json().get("data", [])
+    league_name = standings[0]["MiniLeagues.leagueName"] if standings else "Unknown League"
 
     # === Full Gameweek Data (for visualizations) ===
     all_gw_query = {
@@ -171,7 +172,7 @@ def league_detail():
 
     all_gw_res = requests.post(CUBE_API_URL, headers=headers, json={"query": all_gw_query})
     all_gw_res.raise_for_status()
-    full_gameweek_data = all_gw_res.json().get("data", [])
+    full_gameweek_data = [{**row, "GameweekWinners.gameweek": int(row["GameweekWinners.gameweek"])} for row in all_gw_res.json().get("data", [])]
 
     # === Filtered Gameweek Data (for table) ===
     selected_gameweek = request.args.get("gameweek")
@@ -208,11 +209,12 @@ def league_detail():
 
     gw_res = requests.post(CUBE_API_URL, headers=headers, json={"query": gameweek_query})
     gw_res.raise_for_status()
-    gameweek_data = gw_res.json().get("data", [])
+    gameweek_data = [{**row, "GameweekWinners.gameweek": int(row["GameweekWinners.gameweek"])} for row in gw_res.json().get("data", [])]
 
     return render_template(
         "league_detail.html",
         league_id=league_id,
+        league_name=league_name,
         standings=standings,
         gameweek_data=gameweek_data,              # for Gameweek Table
         full_gameweek_data=full_gameweek_data,    # for JS charts
