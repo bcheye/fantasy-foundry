@@ -1,5 +1,3 @@
-// league_charts.js
-
 const rawData = window.leagueData || [];
 const gameweeks = [...new Set(rawData.map(r => r["GameweekWinners.gameweek"]))].sort((a, b) => a - b);
 
@@ -94,9 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const selected = Array.from(this.selectedOptions).map(opt => opt.value);
     if (selected.length) drawFilteredCharts(selected);
   });
-
-  paginateTable("standingsTable", 10);
-  paginateTable("gameweekTable", 10);
 });
 
 // === Bar Chart: Gameweek Winners ===
@@ -230,10 +225,12 @@ function paginateTable(tableId, rowsPerPage = 10) {
       controls.appendChild(btn);
     }
   }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    paginateTable("standingsTable", 10);
-    paginateTable("gameweekTable", 10);
-   });
   showPage(1);
 }
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  paginateTable("standingsTable", 15);
+  paginateTable("gameweekTable", 15);
+  paginateTable("valueTable", 15);
+});
