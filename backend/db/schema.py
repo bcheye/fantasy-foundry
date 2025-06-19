@@ -8,10 +8,12 @@ from sqlalchemy import (
     DateTime,
     MetaData,
     PrimaryKeyConstraint,
+    func,
 )
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.exc import ProgrammingError
 from db.connector import SQLAlchemyConnector
+from sqlalchemy.dialects.postgresql import TIMESTAMP as PG_TIMESTAMP
 
 # Initialize connector
 db = SQLAlchemyConnector(
@@ -137,7 +139,21 @@ positions = Table(
     Column("singular_name", String),
     Column("plural_name", String),
 )
-
+users = Table(
+    "users",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("email", String, unique=True, nullable=False),
+    Column("password_hash", String, nullable=False),
+    Column("fpl_entry_id", Integer),
+    Column("created_at", PG_TIMESTAMP(timezone=True), server_default=func.now()),
+    Column(
+        "updated_at",
+        PG_TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    ),
+)
 # Create schema and tables
 if __name__ == "__main__":
     with db:  # Ensures connection + disposal

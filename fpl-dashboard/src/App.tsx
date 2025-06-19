@@ -3,6 +3,7 @@ import { Dashboard } from './components/Dashboard';
 import { NavigationIcons } from './components/NavigationIcons';
 import { TopBar } from './components/TopBar';
 import {useState} from "react";
+import {AuthModal} from "./components/auth/AuthModal";
 
 const theme = createTheme({
     palette: {
@@ -27,20 +28,35 @@ const theme = createTheme({
     },
 });
 
-function App() {
-    const [entryId] = useState(3530111);
+export const App = () => {
+    const [authModalOpen, setAuthModalOpen] = useState(true);
+    const [entryId, setEntryId] = useState<number | null>(null);
+
+    const handleAuthSuccess = (id: number) => {
+        setEntryId(id);
+        setAuthModalOpen(false);
+    };
+
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
             <TopBar />
+            {entryId ? (
             <Box sx={{ display: 'flex' }}>
                 <NavigationIcons />
                 <Box sx={{ flexGrow: 1, padding: 4 }}>
                     <Dashboard entryId={entryId}/>
                 </Box>
             </Box>
+            ) : (
+            <AuthModal
+                open={authModalOpen}
+                onClose={() => setAuthModalOpen(false)}
+                onAuthSuccess={handleAuthSuccess}
+            />
+            )}
         </ThemeProvider>
     );
-}
+};
 
 export default App;

@@ -1,4 +1,6 @@
 from flask import Blueprint, jsonify, request
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from services.data_sync import FPLDataSync
 from db.connector import SQLAlchemyConnector
 from db.schema import (
@@ -11,10 +13,13 @@ from db.schema import (
     overview,
     gameweeks,
     gameweek_history,
+    users,
 )
 from sqlalchemy import select, func, desc
 
 api_bp = Blueprint("api", __name__)
+
+auth_bp = Blueprint("auth", __name__)
 
 db = SQLAlchemyConnector(
     user="bcheye",
@@ -212,3 +217,47 @@ def get_minileagues(entry_id):
 
         result = conn.execute(query)
         return jsonify([dict(row) for row in result.mappings()])
+
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    with db.engine.connect() as conn:
+        user = conn.execute(
+            users.select().where(users.c.email == data["email"])
+        ).first()
+
+        if not user or not check_password_hash(user.password_hash, data["password"]):
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        return jsonify({"message": "Login successful", "entryId": user.fpl_entry_id})
+
+
+@auth_bp.route("/signup", methods=["POST"])
+def signup():
+    data = request.get_json()
+
+    if not data or not all(k in data for k in ("email", "password", "entryId")):
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        with db.engine.begin() as conn:  # use .begin() for transaction context
+            if conn.execute(
+                users.select().where(users.c.email == data["email"])
+            ).first():
+                return jsonify({"error": "Email already exists"}), 400
+
+            conn.execute(
+                users.insert().values(
+                    email=data["email"],
+                    password_hash=generate_password_hash(data["password"]),
+                    fpl_entry_id=data["entryId"],
+                )
+            )
+        return jsonify({"message": "Registration successful"}), 201
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()  # log full error to console
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
