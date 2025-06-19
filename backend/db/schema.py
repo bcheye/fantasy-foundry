@@ -3,28 +3,90 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    Numeric,
+    Float,
     Boolean,
     DateTime,
     MetaData,
+    PrimaryKeyConstraint,
 )
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.exc import ProgrammingError
-from backend.db.connector import SQLAlchemyConnector  # Import your updated connector
+from db.connector import SQLAlchemyConnector
 
-# Initialize connector with credentials
+# Initialize connector
 db = SQLAlchemyConnector(
     user="bcheye",
     password="password",
     host="localhost",
     database="fpl_db",
-    debug=True,  # or False in production
+    debug=True,
 )
 
-engine = db.engine  # Use the exposed engine
-metadata = MetaData(schema="fpl")  # Explicit schema
+metadata = MetaData(schema="fpl")
 
-# Define tables with 'fpl' schema
+# Define tables
+
+overview = Table(
+    "overview",
+    metadata,
+    Column("entry_id", Integer),
+    Column("overall_points", Integer),
+    Column("overall_rank", Integer),
+    Column("gameweek_points", Integer),
+    Column("current_gameweek", Integer),
+    Column("team_value", Integer),
+    PrimaryKeyConstraint("entry_id", "current_gameweek", name="overview_pkey"),
+)
+
+gameweek_history = Table(
+    "gameweek_history",
+    metadata,
+    Column("entry_id", Integer),
+    Column("gameweek", Integer),
+    Column("points", Integer),
+    Column("total_points", Integer),
+    Column("overall_rank", Integer),
+    Column("team_value", Integer),
+    Column("cost", Integer),
+    Column("points_on_bench", Integer),
+    PrimaryKeyConstraint("entry_id", "gameweek", name="gw_history_pkey"),
+)
+mini_leagues = Table(
+    "mini_leagues",
+    metadata,
+    Column("entry_id", Integer),
+    Column("league_id", Integer),
+    Column("name", String),
+    Column("created", DateTime),
+    Column("league_type", String),
+    PrimaryKeyConstraint("entry_id", "league_id", name="mini_leagues_pkey"),
+)
+
+mini_league_entries = Table(
+    "mini_league_entries",
+    metadata,
+    Column("entry_id", Integer, nullable=False),
+    Column("entry_name", String),
+    Column("player_name", String),
+    Column("rank", Integer),
+    Column("total", Integer),
+    Column("league_id", Integer, nullable=False),
+    PrimaryKeyConstraint("entry_id", "league_id", name="mini_league_entries_pkey"),
+)
+
+mini_league_gameweek_scores = Table(
+    "mini_league_gameweek_scores",
+    metadata,
+    Column("entry_id", Integer, nullable=False),
+    Column("league_id", Integer, nullable=False),
+    Column("gameweek", Integer, nullable=False),
+    Column("points", Integer),
+    Column("cost", Integer),
+    PrimaryKeyConstraint(
+        "entry_id", "gameweek", "league_id", name="mini_league_gameweek_scores_pkey"
+    ),
+)
+
 players = Table(
     "players",
     metadata,
@@ -34,7 +96,7 @@ players = Table(
     Column("name", String),
     Column("team", Integer),
     Column("position_type_id", Integer),
-    Column("cost", Numeric),
+    Column("cost", Float),
     Column("total_points", Integer),
     Column("selected_by_percent", String),
     Column("minutes", Integer),
@@ -76,47 +138,17 @@ positions = Table(
     Column("plural_name", String),
 )
 
-mini_leagues = Table(
-    "mini_leagues",
-    metadata,
-    Column("league_id", Integer, primary_key=True),
-    Column("name", String, nullable=False),
-    Column("created", DateTime, nullable=True),
-)
-
-mini_league_entries = Table(
-    "mini_league_entries",
-    metadata,
-    Column("entry_id", Integer, primary_key=True),
-    Column("entry_name", String),
-    Column("player_name", String),
-    Column("rank", Integer),
-    Column("total", Integer),
-    Column("league_id", Integer),
-)
-
-mini_league_gameweek_scores = Table(
-    "mini_league_gameweek_scores",
-    metadata,
-    Column("entry_id", Integer, primary_key=True),
-    Column("league_id", Integer),
-    Column("gameweek", Integer, primary_key=True),
-    Column("points", Integer),
-)
-
+# Create schema and tables
 if __name__ == "__main__":
-    # Create schema if not exists
-    try:
+    with db:  # Ensures connection + disposal
+        engine = db.engine
+        try:
+            with engine.begin() as conn:
+                conn.execute(CreateSchema("fpl"))
+                print("✔ Created schema 'fpl'")
+        except ProgrammingError:
+            print("ℹ Schema 'fpl' already exists — skipping")
+
         with engine.begin() as conn:
-            conn.execute(CreateSchema("fpl"))
-            print("✔ Created schema 'fpl'")
-    except ProgrammingError:
-        print("ℹ Schema 'fpl' already exists — skipping")
-
-    # Create tables
-    with engine.begin() as conn:
-        metadata.create_all(conn)
-        print("✔ All tables created successfully")
-
-    # Optionally dispose of engine
-    db.dispose()
+            metadata.create_all(conn)
+            print("✔ All tables created successfully")
