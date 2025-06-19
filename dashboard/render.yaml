@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: fantasyfoundry-dashboard
-    env: python
-    buildCommand: ""
-    startCommand: gunicorn app:app
-    envVars:
-      - key: CUBE_API_TOKEN
-        value: sandbox
