@@ -15,16 +15,18 @@ import {
     Navigate,
 } from 'react-router-dom';
 import {
-    PageContainer,
-    Router,
-} from '@toolpad/core';
-import {
     AppProvider,
     type Navigation,
 } from '@toolpad/core/AppProvider';
+import {
+    DashboardLayout,
+} from '@toolpad/core/DashboardLayout';
+import {
+    PageContainer,
+    Router,
+} from '@toolpad/core';
 
 import { Dashboard } from './components/Dashboard';
-import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import { AuthScreen } from './components/auth/AuthScreen';
 import fplDarkTheme from './theme/fplDarkTheme';
 
@@ -36,6 +38,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 
+// Refactored NAVIGATION with headers and dividers
 const NAVIGATION: Navigation = [
     {
         segment: 'overview',

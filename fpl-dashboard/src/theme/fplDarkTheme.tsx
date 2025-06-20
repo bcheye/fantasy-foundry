@@ -5,7 +5,7 @@ const fplDarkTheme = createTheme({
         mode: 'dark',
         background: {
             default: '#1c2b21', // Main deep dark background
-            paper: '#1c2b21',   // Slightly lighter dark for cards, header, sidebar
+            paper: '#27362c',   // Slightly lighter dark for cards, header, sidebar
         },
         primary: {
             main: '#4CAF50', // A strong green for accents, active states, etc. (like the active nav item)

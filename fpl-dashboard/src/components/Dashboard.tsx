@@ -4,7 +4,7 @@ import {
     Typography,
     CircularProgress,
     Alert,
-    Box // Added Box for flexible container
+    Box, Divider // Added Box for flexible container
 } from '@mui/material';
 import { MetricCard } from './MetricCard';
 import { TopPlayersTable } from './TopPlayersTable';
@@ -82,21 +82,35 @@ export const Dashboard = ({ entryId ,userName}: DashboardProps) => {
 
     return (
         <>
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                    Welcome, {userName || 'Manager'}
-                    <Typography
-                        variant="subtitle2"
-                        component="span"
-                        sx={{
-                            display: 'block',
-                            color: 'text.secondary',
-                            fontWeight: 400,
-                            mt: 0.5
-                        }}
-                    >
-                        It's Gameweek {overview.gameweek}
-                    </Typography>
+            <Box
+                sx={{
+                    mb: 4,
+                    p: 3,
+                    borderRadius: 5,
+                    background: '#27362c',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                }}
+            >
+                <Typography
+                    variant="h3"
+                    component="h1"
+                    sx={{
+                        fontWeight: 700,
+                        color: '#50d22c',
+                        mb: 1,
+                    }}
+                >
+                    Welcome back, {userName}! 👋
+                </Typography>
+
+                <Typography
+                    variant="h6"
+                    sx={{
+                        fontWeight: 500,
+                        color: 'rgba(255,255,255,0.8)',
+                    }}
+                >
+                    Gameweek {overview.gameweek} is live! Your team is ready to dominate.
                 </Typography>
             </Box>
 
@@ -135,14 +149,26 @@ export const Dashboard = ({ entryId ,userName}: DashboardProps) => {
                 </Grid>
             </Grid>
 
-            {/* Added Typography for section headers (Points Over Time, Top Performing Players)
-                Adjusted sx prop for better spacing and theme integration */}
             <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'text.primary' }}>Points Over Time</Typography>
-            <Grid size={{xs:16, md:16 }}>
-                <GameweekChart gameweeks={gameweeks.map(gw => ({
-                    gameweek: gw.gameweek.toString(),
-                    points: gw.points,
-                }))} />
+
+
+            <Grid size={{xs:12}}>
+                <Box
+                    sx={{
+                        p: 3,
+                        borderRadius: 5,
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15)',
+                        backgroundColor: '#27362c',
+                        color: '#ccefdc'
+                    }}
+                >
+                    <GameweekChart
+                        gameweeks={gameweeks.map((gw) => ({
+                            gameweek: gw.gameweek.toString(),
+                            points: gw.points,
+                        }))}
+                    />
+                </Box>
             </Grid>
 
             <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'text.primary' }}>Top Performing Players</Typography>
