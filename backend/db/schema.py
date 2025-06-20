@@ -143,6 +143,8 @@ users = Table(
     "users",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("first_name", String, nullable=False),
+    Column("last_name", String, nullable=False),
     Column("email", String, unique=True, nullable=False),
     Column("password_hash", String, nullable=False),
     Column("fpl_entry_id", Integer),
