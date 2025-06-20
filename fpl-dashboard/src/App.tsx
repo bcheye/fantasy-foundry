@@ -15,13 +15,16 @@ import {
     Navigate,
 } from 'react-router-dom';
 import {
-    AppProvider,
-    DashboardLayout,
     PageContainer,
     Router,
 } from '@toolpad/core';
+import {
+    AppProvider,
+    type Navigation,
+} from '@toolpad/core/AppProvider';
 
 import { Dashboard } from './components/Dashboard';
+import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import { AuthScreen } from './components/auth/AuthScreen';
 import fplDarkTheme from './theme/fplDarkTheme';
 
@@ -33,7 +36,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 
-const NAVIGATION = [
+const NAVIGATION: Navigation = [
     {
         segment: 'overview',
         title: 'Overview',
@@ -147,8 +150,8 @@ export const App = () => {
                                         <Route
                                             path="/overview"
                                             element={
-                                                <PageContainer title={userName ? `Welcome, ${userName}` : 'Welcome!'}>
-                                                    <Dashboard entryId={entryId} />
+                                                <PageContainer title=''>
+                                                    <Dashboard entryId={entryId} userName={userName} />
                                                 </PageContainer>
                                             }
                                         />

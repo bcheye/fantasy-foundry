@@ -15,7 +15,13 @@ import ScoreIcon from '@mui/icons-material/Score';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 
-export const Dashboard = ({ entryId }: { entryId: number }) => {
+
+interface DashboardProps {
+    entryId: number;
+    userName: string | null;
+}
+
+export const Dashboard = ({ entryId ,userName}: DashboardProps) => {
     const [overview, setOverview] = useState<any>(null);
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
     const [gameweeks, setGameWeeks] = useState<any[]>([]);
@@ -75,11 +81,24 @@ export const Dashboard = ({ entryId }: { entryId: number }) => {
     }
 
     return (
-        // Wrap content in a React Fragment or a Box if needed for specific styling
-        // PageContainer from App.tsx will provide the maxWidth and padding.
         <>
-            {/* REMOVED: Typography for "Flashboard" and "Overview of your FPL performance"
-                These are now managed by PageContainer's title and subtitle props in App.tsx */}
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="h4" component="h1" gutterBottom>
+                    Welcome, {userName || 'Manager'}
+                    <Typography
+                        variant="subtitle2"
+                        component="span"
+                        sx={{
+                            display: 'block',
+                            color: 'text.secondary',
+                            fontWeight: 400,
+                            mt: 0.5
+                        }}
+                    >
+                        It's Gameweek {overview.gameweek}
+                    </Typography>
+                </Typography>
+            </Box>
 
             <Grid container spacing={3} mb={4}>
                 <Grid size={{xs:12, md:3}}>
