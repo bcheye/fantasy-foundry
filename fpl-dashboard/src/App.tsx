@@ -1,9 +1,11 @@
+// src/App.tsx
 import * as React from 'react';
 import { CssBaseline, ThemeProvider, Box, TextField, InputAdornment, IconButton, Avatar } from '@mui/material';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Routes, Route, Navigate } from 'react-router-dom'; // Import Navigate
 import { AppProvider, DashboardLayout, PageContainer, Router } from '@toolpad/core';
+
 import { Dashboard } from './components/Dashboard';
-import { AuthModal } from './components/auth/AuthModal';
+import { AuthScreen } from './components/auth/AuthScreen';
 import fplDarkTheme from './theme/fplDarkTheme';
 
 // Import Material Icons for Navigation
@@ -45,32 +47,28 @@ const NAVIGATION = [
 ];
 
 // --- Custom Components for DashboardLayout Slots ---
-function CustomToolbarSearch() {
-    return (
-        <TextField
-            variant="outlined"
-            placeholder="Search"
-            size="small"
-            InputProps={{
-                startAdornment: (
-                    <InputAdornment position="start">
-                        <SearchIcon />
-                    </InputAdornment>
-                ),
-            }}
-            sx={{
-                width: '40%',
-                minWidth: '200px',
-                maxWidth: '400px',
-                backgroundColor: 'transparent',
-            }}
-        />
-    );
-}
-
 function CustomToolbarActions() {
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+                variant="outlined"
+                placeholder="Search"
+                size="small"
+                InputProps={{
+                    startAdornment: (
+                        <InputAdornment position="start">
+                            <SearchIcon />
+                        </InputAdornment>
+                    ),
+                }}
+                sx={{
+                    width: '40%',
+                    minWidth: '200px',
+                    maxWidth: '400px',
+                    backgroundColor: 'transparent',
+                    mr: 2
+                }}
+            />
             <IconButton color="inherit" size="large">
                 <NotificationsNoneIcon />
             </IconButton>
@@ -83,96 +81,97 @@ function CustomToolbarActions() {
 
 // --- Main App Component ---
 export const App = () => {
-    const [authModalOpen, setAuthModalOpen] = React.useState(true);
     const [entryId, setEntryId] = React.useState<number | null>(null);
+    const [userName, setUserName] = React.useState<string | null>(null);
 
-    const handleAuthSuccess = (id: number) => {
+    const handleAuthSuccess = (id: number, name: string) => {
         setEntryId(id);
-        setAuthModalOpen(false);
+        setUserName(name);
+        navigate('/overview'); // Navigate to overview after successful login
     };
 
     const location = useLocation();
     const navigate = useNavigate();
 
-    // Fix: Create a navigate wrapper to satisfy the Router type
     const toolpadNavigate: Router['navigate'] = React.useCallback((url: string | URL) => {
-        // react-router-dom's navigate function expects a string or a Path object
-        // It doesn't directly support URL objects.
-        // Convert URL to string if necessary.
         const path = typeof url === 'string' ? url : url.pathname + url.search;
         navigate(path);
     }, [navigate]);
 
-
-    const router = React.useMemo<Router>(() => { // Explicitly type router as Router
+    const router = React.useMemo<Router>(() => {
         return {
             pathname: location.pathname,
             searchParams: new URLSearchParams(location.search),
-            navigate: toolpadNavigate, // Use the wrapped navigate function
+            navigate: toolpadNavigate,
         };
-    }, [location, toolpadNavigate]); // Depend on location and toolpadNavigate
+    }, [location, toolpadNavigate]);
 
     return (
         <ThemeProvider theme={fplDarkTheme}>
             <CssBaseline />
 
-            {entryId ? (
-                <AppProvider
-                    navigation={NAVIGATION}
-                    router={router}
-                    branding={{
-                        title: 'FPL Analytics',
-                        homeUrl: '/overview',
+            <AppProvider
+                navigation={NAVIGATION}
+                router={router}
+                branding={{
+                    title: 'FPL Analytics',
+                    homeUrl: '/',
+                }}
+            >
+                <DashboardLayout
+                    slots={{
+                        toolbarActions: CustomToolbarActions,
                     }}
                 >
-                    <DashboardLayout
-                        slots={{
-                            toolbarActions: () => (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <CustomToolbarSearch />
-                                    <CustomToolbarActions />
-                                </Box>
-                            ),
-                        }}
-                    >
-                        {(() => {
-                            const pathname = router.pathname;
-                            
-                            // Route to the appropriate component based on pathname
-                            if (pathname === '/' || pathname === '/overview') {
-                                return <PageContainer><Dashboard entryId={entryId} /></PageContainer>;
-                            } else if (pathname === '/player-analysis') {
-                                return <PageContainer><Box sx={{p:3}}><p>Player Analysis Content</p></Box></PageContainer>;
-                            } else if (pathname === '/team-planner') {
-                                return <PageContainer><Box sx={{p:3}}><p>Team Planner Content</p></Box></PageContainer>;
-                            } else if (pathname === '/mini-league-tracker') {
-                                return <PageContainer><Box sx={{p:3}}><p>Mini-League Tracker Content</p></Box></PageContainer>;
-                            } else if (pathname === '/transfers') {
-                                return <PageContainer><Box sx={{p:3}}><p>Transfers Content</p></Box></PageContainer>;
-                            } else {
-                                return <PageContainer><Box sx={{p:3}}><p>Page not found!</p></Box></PageContainer>;
-                            }
-                        })()}
-                    </DashboardLayout>
-                </AppProvider>
-            ) : (
-                <AuthModal
-                    open={authModalOpen}
-                    onClose={() => setAuthModalOpen(false)}
-                    onAuthSuccess={handleAuthSuccess}
-                />
-            )}
+                    <Routes>
+                        {entryId ? (
+                            <>
+                                {/* Redirect from root to /overview if authenticated */}
+                                <Route path="/" element={<Navigate to="/overview" replace />} />
+
+                                {/* Authenticated routes */}
+                                <Route path="/overview" element={
+                                    <PageContainer
+                                        title={userName ? `Welcome, ${userName}` : 'Welcome!'}
+                                    >
+                                        <Dashboard entryId={entryId} />
+                                    </PageContainer>
+                                } />
+                                <Route path="/player-analysis" element={<PageContainer title="Player Analysis"><Box sx={{p:3}}><p>Player Analysis Content</p></Box></PageContainer>} />
+                                <Route path="/team-planner" element={<PageContainer title="Team Planner"><Box sx={{p:3}}><p>Team Planner Content</p></Box></PageContainer>} />
+                                <Route path="/mini-league-tracker" element={<PageContainer title="Mini-League Tracker"><Box sx={{p:3}}><p>Mini-League Tracker Content</p></Box></PageContainer>} />
+                                <Route path="/transfers" element={<PageContainer title="Transfers"><Box sx={{p:3}}><p>Transfers Content</p></Box></PageContainer>} />
+
+                                {/* Catch-all for authenticated users to avoid AuthScreen if they type a bad URL */}
+                                <Route path="*" element={<PageContainer><Box sx={{p:3}}><p>Page not found!</p></Box></PageContainer>} />
+                            </>
+                        ) : (
+                            // Unauthenticated routes
+                            <>
+                                {/* AuthScreen is now explicitly rendered at the root path or any unknown path */}
+                                <Route path="/" element={
+                                    <PageContainer
+                                        sx={{
+                                            flexGrow: 1,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            maxWidth: 'md',
+                                        }}
+                                    >
+                                        <AuthScreen onAuthSuccess={handleAuthSuccess} />
+                                    </PageContainer>
+                                } />
+                                {/* Redirect any other path to AuthScreen if not authenticated */}
+                                <Route path="*" element={<Navigate to="/" replace />} />
+                            </>
+                        )}
+                    </Routes>
+                </DashboardLayout>
+            </AppProvider>
         </ThemeProvider>
     );
 };
 
-// This wrapper is no longer needed here if index.tsx handles BrowserRouter
-// export default function RootApp() {
-//     return (
-//         <BrowserRouter>
-//             <App />
-//         </BrowserRouter>
-//     );
-// }
-// Instead, just export App as default if that's how your index.tsx expects it.
 export default App;
