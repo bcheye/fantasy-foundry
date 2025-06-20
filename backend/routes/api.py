@@ -275,6 +275,8 @@ def signup():
             conn.execute(
                 users.insert().values(
                     email=data["email"],
+                    first_name=data["first_name"],
+                    last_name=data["last_name"],
                     password_hash=generate_password_hash(data["password"]),
                     fpl_entry_id=data["entryId"],
                 )
