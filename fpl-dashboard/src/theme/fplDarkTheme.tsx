@@ -169,13 +169,6 @@ const fplDarkTheme = createTheme({
                 },
             },
         },
-        MuiCssBaseline: {
-            styleOverrides: {
-                body: {
-                    backgroundColor: '#1c2b21', // Your desired background color
-                },
-            },
-        },
     },
 });
 

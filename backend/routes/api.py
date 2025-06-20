@@ -252,10 +252,21 @@ def login():
             users.select().where(users.c.email == data["email"])
         ).first()
 
-        if not user or not check_password_hash(user.password_hash, data["password"]):
+        if not user:
             return jsonify({"error": "Invalid credentials"}), 401
 
-        return jsonify({"message": "Login successful", "entryId": user.fpl_entry_id})
+        user_map = user._mapping
+
+        if not check_password_hash(user_map["password_hash"], data["password"]):
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        return jsonify(
+            {
+                "entryId": user_map["fpl_entry_id"],
+                "firstName": user_map["first_name"],
+                "lastName": user_map["last_name"],
+            }
+        )
 
 
 @auth_bp.route("/signup", methods=["POST"])

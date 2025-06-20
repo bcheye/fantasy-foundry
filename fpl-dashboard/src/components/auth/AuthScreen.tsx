@@ -1,4 +1,3 @@
-// src/components/auth/AuthScreen.tsx
 import * as React from 'react';
 import {
     Paper,
@@ -6,7 +5,6 @@ import {
     TextField,
     Button,
     Box,
-    // Removed Tabs, Tab as we're now using custom tab-like headers
     InputAdornment,
     IconButton,
     Alert,
@@ -14,10 +12,10 @@ import {
     Checkbox,
     FormControlLabel,
     Link,
-    Grid // Added Grid for FPL Entry ID layout
+    Grid
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchFplIdThroughPopup } from '../../utils/fplAuth';
 
@@ -25,36 +23,55 @@ interface AuthScreenProps {
     onAuthSuccess: (entryId: number, userName: string) => void;
 }
 
-// Define AuthMode enum directly within AuthScreen for self-containment
 enum AuthMode {
     LOGIN = 'login',
     SIGNUP = 'signup'
 }
 
 export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
-    const [mode, setMode] = useState<AuthMode>(AuthMode.LOGIN); // Default to Login as per screenshot
+    const [mode, setMode] = useState<AuthMode>(AuthMode.LOGIN);
     const [first_name, setFirstName] = useState('');
     const [last_name, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fplEntryId, setFplEntryId] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false); // For "Remember Me" checkbox
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null); // For general API errors
-
-    // State for validation errors (from AuthForm)
+    const [error, setError] = useState<string | null>(null);
+    const [signupSuccess, setSignupSuccess] = useState(false);
+    const [countdown, setCountdown] = useState(5);
     const [fieldErrors, setFieldErrors] = useState({
         email: '',
         password: '',
         entryId: ''
     });
 
+    // Handle countdown and auto-redirect
+    useEffect(() => {
+        if (!signupSuccess) return;
+
+        const timer = setTimeout(() => {
+            handleTabChange(AuthMode.LOGIN);
+            setSignupSuccess(false);
+        }, 5000);
+
+        const interval = setInterval(() => {
+            setCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+
+        return () => {
+            clearTimeout(timer);
+            clearInterval(interval);
+            setCountdown(5);
+        };
+    }, [signupSuccess]);
+
     const validateForm = () => {
         const newErrors = {
             email: !email ? 'Email is required' : !/\S+@\S+\.\S+/.test(email) ? 'Invalid email format' : '',
             password: !password ? 'Password is required' : password.length < 6 ? 'Password must be at least 6 characters' : '',
-            entryId: mode === AuthMode.SIGNUP && !fplEntryId ? 'Entry ID is required' : '' // Use fplEntryId here
+            entryId: mode === AuthMode.SIGNUP && !fplEntryId ? 'Entry ID is required' : ''
         };
         setFieldErrors(newErrors);
         return !Object.values(newErrors).some(error => error);
@@ -66,11 +83,9 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); // Prevent default form submission
-        setError(null); // Clear previous API errors
-        if (!validateForm()) {
-            return; // Stop if client-side validation fails
-        }
+        e.preventDefault();
+        setError(null);
+        if (!validateForm()) return;
         setLoading(true);
 
         try {
@@ -82,14 +97,14 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
                     password,
                     entryId: Number(fplEntryId)
                 });
-                onAuthSuccess(response.data.entryId, response.data.name);
-            } else { // Login mode
-                const response = await axios.post<{ entryId: number; name: string }>('/auth/login', {
+                setSignupSuccess(true);
+            } else {
+                const response = await axios.post<{ entryId: number; firstName: string }>('/auth/login', {
                     email,
                     password,
                     rememberMe
                 });
-                onAuthSuccess(response.data.entryId, response.data.name);
+                onAuthSuccess(response.data.entryId, response.data.firstName);
             }
         } catch (err) {
             setError(
@@ -103,23 +118,21 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         }
     };
 
-    // Custom tab-like header change handler
     const handleTabChange = (newMode: AuthMode) => {
         setMode(newMode);
-        // Clear all form fields and errors when switching modes
         setFirstName('');
         setLastName('');
         setEmail('');
         setPassword('');
         setFplEntryId('');
-        setError(null); // Clear general API errors
-        setFieldErrors({ email: '', password: '', entryId: '' }); // Clear field validation errors
+        setError(null);
+        setFieldErrors({ email: '', password: '', entryId: '' });
     };
 
     const handleFetchFplEntryId = async () => {
         setLoading(true);
         setError(null);
-        setFieldErrors(prev => ({...prev, entryId: ''})); // Clear entry ID specific error
+        setFieldErrors(prev => ({...prev, entryId: ''}));
         try {
             const id = await fetchFplIdThroughPopup();
             setFplEntryId(id.toString());
@@ -132,184 +145,195 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     };
 
     return (
-        <Paper
-            sx={styles.paperContainer} // Apply Paper specific styles
-        >
-            <Box component="form" onSubmit={handleFormSubmit} sx={styles.form}> {/* Form specific styles */}
+        <Paper sx={styles.paperContainer}>
+            <Box component="form" onSubmit={handleFormSubmit} sx={styles.form}>
                 <Typography variant="h4" align="center" fontWeight="bold" sx={styles.title}>
                     Welcome to FPL Analytics
                 </Typography>
 
-                <Box sx={styles.tabContainer}>
-                    {Object.values(AuthMode).map((tab) => (
-                        <Typography
-                            key={tab}
-                            variant="body2"
-                            onClick={() => handleTabChange(tab)}
-                            sx={{
-                                ...styles.tab,
-                                color: mode === tab ? '#ffffff' : '#a1c398',
-                                borderBottom: mode === tab ? '3px solid #50d22c' : '3px solid transparent',
-                            }}
-                        >
-                            {tab === AuthMode.LOGIN ? 'Login' : 'Sign Up'}
+                {signupSuccess ? (
+                    <Box sx={{ textAlign: 'center', width: '100%' }}>
+                        <Alert severity="success" sx={{ mb: 3 }}>
+                            Account created successfully!
+                        </Alert>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                            You will be redirected to login in {countdown} seconds...
                         </Typography>
-                    ))}
-                </Box>
-
-                {/* API Error Alert */}
-                {error && (
-                    <Alert severity="error" sx={{ mb: 2, width: '100%' }}>
-                        {error}
-                    </Alert>
-                )}
-
-                {/*First name (Signup Only)*/}
-                {mode === AuthMode.SIGNUP && (
-                    <TextField
-                    required
-                    fullWidth
-                    label="First Name"
-                    value={first_name}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    disabled={loading}
-                    error={!!fieldErrors.email} // Use fieldErrors here
-                    helperText={fieldErrors.email}
-                    sx={styles.field} // Apply field specific styles
-                />
-                )}
-
-                {/*Last name (Signup Only)*/}
-                {mode === AuthMode.SIGNUP && (
-                    <TextField
-                    required
-                    fullWidth
-                    label="Last Name"
-                    value={last_name}
-                    onChange={(e) => setLastName(e.target.value)}
-                    disabled={loading}
-                    error={!!fieldErrors.email} // Use fieldErrors here
-                    helperText={fieldErrors.email}
-                    sx={styles.field} // Apply field specific styles
-                />
-                )}
-
-                {/* Email */}
-                <TextField
-                    required
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                    error={!!fieldErrors.email} // Use fieldErrors here
-                    helperText={fieldErrors.email}
-                    sx={styles.field} // Apply field specific styles
-                />
-
-                {/* Password */}
-                <TextField
-                    required
-                    fullWidth
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    error={!!fieldErrors.password} // Use fieldErrors here
-                    helperText={fieldErrors.password}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <IconButton
-                                    onClick={handleClickShowPassword} // Corrected
-                                    edge="end"
-                                    sx={{ color: '#a1c398' }} // Apply icon color
-                                >
-                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                            </InputAdornment>
-                        )
-                    }}
-                    sx={styles.field} // Apply field specific styles
-                />
-
-                {/* FPL Entry ID (Sign Up Only) */}
-                {mode === AuthMode.SIGNUP && (
-                    <Grid container spacing={2} alignItems="flex-end">
-                        <Grid size={{xs:7}} > {/* Changed size to item xs */}
-                            <TextField
-                                required
-                                fullWidth
-                                label="FPL Entry ID"
-                                type="number"
-                                value={fplEntryId} // Use fplEntryId here
-                                onChange={(e) => setFplEntryId(e.target.value)}
-                                disabled={loading}
-                                error={!!fieldErrors.entryId} // Use fieldErrors here
-                                helperText={fieldErrors.entryId}
-                                sx={styles.field} // Apply field specific styles
-                            />
-                        </Grid>
-                        <Grid size={{xs: 5}} > {/* Changed size to item xs */}
-                            <Button
-                                fullWidth
-                                onClick={handleFetchFplEntryId} // Corrected to internal handler
-                                disabled={loading}
-                                sx={styles.secondaryButton} // Apply secondary button styles
-                            >
-                                Get ID Automatically
-                            </Button>
-                        </Grid>
-                    </Grid>
-                )}
-
-                {/* "Remember Me" & "Forgot Password?" (Login Only) */}
-                {mode === AuthMode.LOGIN && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 2, alignItems: 'center' }}>
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    sx={{
-                                        color: '#a1c398', // Checkbox color
-                                        '&.Mui-checked': {
-                                            color: '#50d22c', // Checked state color
-                                        },
-                                        '& .MuiSvgIcon-root': { fontSize: 20 }
-                                    }}
-                                    disabled={loading}
-                                />
-                            }
-                            label={<Typography variant="body2" sx={{ color: '#a1c398' }}>Remember Me</Typography>}
-                        />
-                        <Link href="#" variant="body2" sx={{ color: '#a1c398', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: '#50d22c' } }}>
-                            Forgot Password?
-                        </Link>
+                        <Button
+                            variant="outlined"
+                            onClick={() => {
+                                handleTabChange(AuthMode.LOGIN);
+                                setSignupSuccess(false);
+                                setCountdown(5);
+                            }}
+                            sx={{ mt: 1 }}
+                        >
+                            Go to Login Now
+                        </Button>
                     </Box>
-                )}
+                ) : (
+                    <>
+                        <Box sx={styles.tabContainer}>
+                            {Object.values(AuthMode).map((tab) => (
+                                <Typography
+                                    key={tab}
+                                    variant="body2"
+                                    onClick={() => handleTabChange(tab)}
+                                    sx={{
+                                        ...styles.tab,
+                                        color: mode === tab ? '#ffffff' : '#a1c398',
+                                        borderBottom: mode === tab ? '3px solid #50d22c' : '3px solid transparent',
+                                    }}
+                                >
+                                    {tab === AuthMode.LOGIN ? 'Login' : 'Sign Up'}
+                                </Typography>
+                            ))}
+                        </Box>
 
-                {/* Submit */}
-                <Button
-                    type="submit"
-                    fullWidth
-                    disabled={loading}
-                    sx={styles.submitButton} // Apply submit button styles
-                >
-                    {loading
-                        ? (mode === AuthMode.SIGNUP ? 'Signing up...' : 'Logging in...') // Text for loading state
-                        : (mode === AuthMode.SIGNUP ? 'Sign Up' : 'Login') // Text for ready state
-                    }
-                </Button>
+                        {error && (
+                            <Alert severity="error" sx={{ mb: 2, width: '100%' }}>
+                                {error}
+                            </Alert>
+                        )}
+
+                        {mode === AuthMode.SIGNUP && (
+                            <>
+                                <TextField
+                                    required
+                                    fullWidth
+                                    label="First Name"
+                                    value={first_name}
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    disabled={loading}
+                                    sx={styles.field}
+                                />
+                                <TextField
+                                    required
+                                    fullWidth
+                                    label="Last Name"
+                                    value={last_name}
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    disabled={loading}
+                                    sx={styles.field}
+                                />
+                            </>
+                        )}
+
+                        <TextField
+                            required
+                            fullWidth
+                            label="Email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={loading}
+                            error={!!fieldErrors.email}
+                            helperText={fieldErrors.email}
+                            sx={styles.field}
+                        />
+
+                        <TextField
+                            required
+                            fullWidth
+                            label="Password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            disabled={loading}
+                            error={!!fieldErrors.password}
+                            helperText={fieldErrors.password}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={handleClickShowPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                            sx={{ color: '#a1c398' }}
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={styles.field}
+                        />
+
+                        {mode === AuthMode.SIGNUP && (
+                            <Grid container spacing={2} alignItems="flex-end">
+                                <Grid size={{xs:7}} >
+                                    <TextField
+                                        required
+                                        fullWidth
+                                        label="FPL Entry ID"
+                                        type="number"
+                                        value={fplEntryId}
+                                        onChange={(e) => setFplEntryId(e.target.value)}
+                                        disabled={loading}
+                                        error={!!fieldErrors.entryId}
+                                        helperText={fieldErrors.entryId}
+                                        sx={styles.field}
+                                    />
+                                </Grid>
+                                <Grid size={{xs: 5}} >
+                                    <Button
+                                        fullWidth
+                                        onClick={handleFetchFplEntryId}
+                                        disabled={loading}
+                                        sx={styles.secondaryButton}
+                                    >
+                                        Get ID Automatically
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        )}
+
+                        {mode === AuthMode.LOGIN && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 2, alignItems: 'center' }}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            sx={{
+                                                color: '#a1c398',
+                                                '&.Mui-checked': {
+                                                    color: '#50d22c',
+                                                },
+                                                '& .MuiSvgIcon-root': { fontSize: 20 }
+                                            }}
+                                            disabled={loading}
+                                        />
+                                    }
+                                    label={<Typography variant="body2" sx={{ color: '#a1c398' }}>Remember Me</Typography>}
+                                />
+                                <Link href="#" variant="body2" sx={{ color: '#a1c398', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: '#50d22c' } }}>
+                                    Forgot Password?
+                                </Link>
+                            </Box>
+                        )}
+
+                        <Button
+                            type="submit"
+                            fullWidth
+                            disabled={loading}
+                            sx={styles.submitButton}
+                        >
+                            {loading ? (
+                                <CircularProgress size={24} color="inherit" />
+                            ) : (
+                                mode === AuthMode.SIGNUP ? 'Sign Up' : 'Login'
+                            )}
+                        </Button>
+                    </>
+                )}
             </Box>
         </Paper>
     );
 };
 
 const styles = {
-    paperContainer: { // New style for the Paper component
+    paperContainer: {
         width: { xs: '90%', sm: '500px', md: '600px' },
         p: 4,
         borderRadius: '12px',
@@ -317,21 +341,17 @@ const styles = {
         flexDirection: 'column',
         alignItems: 'center',
         boxShadow: 3,
-        backgroundColor: '#162013', // This should be your Paper background color based on the screenshot
+        backgroundColor: '#162013',
         backgroundImage: 'none',
         mx: 'auto',
         my: 4,
     },
-    // The previous `container` styles were for the Modal's background.
-    // They are now handled by App.tsx's PageContainer and DashboardLayout.
-    // So, this `container` style is removed.
-
-    form: { // Styles for the form wrapper inside the Paper
+    form: {
         width: '100%',
-        maxWidth: 480, // Limiting inner form width as per AuthForm.tsx
+        maxWidth: 480,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2, // Spacing between form elements
+        gap: 2,
     },
     title: {
         mb: 2,
@@ -350,63 +370,59 @@ const styles = {
         flex: 1,
         textAlign: 'center',
         transition: 'all 0.3s ease',
-        // color and borderBottom are set dynamically in the component
     },
     field: {
-        // You had `input: { color: '#ffffff' }` here.
-        // It's generally better to apply `color` directly to `InputBase` or `InputLabel` via sx
-        // if using theming. But for direct styling it works.
-        '& .MuiInputBase-input': { color: '#ffffff' }, // This targets the actual text input
+        '& .MuiInputBase-input': { color: '#ffffff' },
         '& .MuiOutlinedInput-root': {
-            backgroundColor: '#21301c', // Darker background for text fields as per original AuthForm
-            borderRadius: '8px', // Changed from 2 to '8px' for consistency with other styles
+            backgroundColor: '#21301c',
+            borderRadius: '8px',
             '& fieldset': {
-                borderColor: '#416039' // Border color when not focused/hovered
+                borderColor: '#416039'
             },
             '&:hover fieldset': {
-                borderColor: '#50d22c' // Green on hover
+                borderColor: '#50d22c'
             },
             '&.Mui-focused fieldset': {
-                borderColor: '#50d22c' // Green on focus
+                borderColor: '#50d22c'
             }
         },
         '& .MuiInputLabel-root': {
-            color: '#a1c398', // Label color (muted green)
-            '&.Mui-focused': { color: '#50d22c' } // Label color when focused (bright green)
+            color: '#a1c398',
+            '&.Mui-focused': { color: '#50d22c' }
         },
         '& .MuiFormHelperText-root': {
-            color: '#ff6b6b' // Error text color
+            color: '#ff6b6b'
         }
     },
     secondaryButton: {
-        height: 56, // Fixed height
-        mt: 1.5, // Margin top for alignment with TextField
-        borderRadius: '999px', // Pill shape
-        backgroundColor: '#2e4328', // Darker green background
-        color: '#ffffff', // White text
+        height: 56,
+        mt: 1.5,
+        borderRadius: '999px',
+        backgroundColor: '#2e4328',
+        color: '#ffffff',
         fontWeight: 'bold',
         textTransform: 'none',
         '&:hover': {
-            backgroundColor: '#3b5b35' // Slightly lighter green on hover
+            backgroundColor: '#3b5b35'
         },
-        '&:disabled': { // Disabled state for consistency
-            backgroundColor: '#2e4328', // Keep dark background
-            color: 'rgba(255, 255, 255, 0.5)', // Muted text color
+        '&:disabled': {
+            backgroundColor: '#2e4328',
+            color: 'rgba(255, 255, 255, 0.5)',
         }
     },
     submitButton: {
         height: 56,
         borderRadius: '999px',
-        backgroundColor: '#50d22c', // Bright green primary button
-        color: '#162013', // Very dark text on green
+        backgroundColor: '#50d22c',
+        color: '#162013',
         fontWeight: 'bold',
         mt: 3,
         '&:hover': {
-            backgroundColor: '#4cc328' // Slightly darker green on hover
+            backgroundColor: '#4cc328'
         },
         '&:disabled': {
-            backgroundColor: '#a1c398', // Muted green when disabled
-            color: '#162013' // Dark text
+            backgroundColor: '#a1c398',
+            color: '#162013'
         }
     }
 };

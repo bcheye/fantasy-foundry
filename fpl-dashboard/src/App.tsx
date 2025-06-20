@@ -1,4 +1,3 @@
-// src/App.tsx
 import * as React from 'react';
 import {
     CssBaseline,
@@ -7,7 +6,6 @@ import {
     TextField,
     InputAdornment,
     IconButton,
-    Avatar,
 } from '@mui/material';
 import {
     useLocation,
@@ -20,7 +18,6 @@ import {
     AppProvider,
     DashboardLayout,
     PageContainer,
-    Account,
     Router,
 } from '@toolpad/core';
 
@@ -30,7 +27,7 @@ import fplDarkTheme from './theme/fplDarkTheme';
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
-import GroupIcon from '@mui/icons-material/Group';
+import EqualizerIcon from "@mui/icons-material/Equalizer";
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SearchIcon from '@mui/icons-material/Search';
@@ -50,7 +47,7 @@ const NAVIGATION = [
     {
         segment: 'team-planner',
         title: 'Team Planner',
-        icon: <GroupIcon />,
+        icon: <EqualizerIcon />,
     },
     {
         segment: 'mini-league-tracker',
