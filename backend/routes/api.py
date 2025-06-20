@@ -15,7 +15,7 @@ from db.schema import (
     gameweek_history,
     users,
 )
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, text
 
 api_bp = Blueprint("api", __name__)
 
@@ -136,7 +136,7 @@ def get_top_performing_players():
 @api_bp.route("/overview/<int:entry_id>", methods=["GET"])
 def get_overview(entry_id):
     with db.engine.connect() as conn:
-        # Get current gameweek
+        # Check if a current gameweek exists
         current_gw = conn.execute(
             select(gameweeks.c.gameweek_id).where(gameweeks.c.is_current == True)
         ).scalar()
@@ -147,16 +147,41 @@ def get_overview(entry_id):
                 404,
             )
 
-        # Get overview for entry_id and current gameweek
-        query = select(overview).where(
-            (overview.c.entry_id == entry_id)
-            & (overview.c.current_gameweek == current_gw)
+        # Define full SQL query with change percentages
+        query = text(
+            """
+                     WITH base AS (
+                         SELECT
+                             entry_id,
+                             gameweek,
+                             points,
+                             ROUND((points - LAG(points) OVER (PARTITION BY entry_id ORDER BY gameweek))
+                                       / NULLIF(LAG(points) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS points_pct_change,
+                             total_points,
+                             ROUND((total_points - LAG(total_points) OVER (PARTITION BY entry_id ORDER BY gameweek))
+                                       / NULLIF(LAG(total_points) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS total_points_pct_change,
+                             overall_rank,
+                             ROUND((LAG(overall_rank) OVER (PARTITION BY entry_id ORDER BY gameweek) - overall_rank)
+                                       / NULLIF(LAG(overall_rank) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS rank_pct_change,
+                             team_value,
+                             ROUND((team_value - LAG(team_value) OVER (PARTITION BY entry_id ORDER BY gameweek))
+                                       / NULLIF(LAG(team_value) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS team_value_pct_change,
+                             cost,
+                             points_on_bench
+                         FROM fpl.gameweek_history
+                         WHERE entry_id = :entry_id
+                     )
+                     SELECT base.*
+                     FROM base
+                              INNER JOIN fpl.gameweeks ON fpl.gameweeks.gameweek_id = base.gameweek
+                     WHERE fpl.gameweeks.is_current = true
+                     """
         )
 
-        result = conn.execute(query)
-        data = [dict(row) for row in result.mappings()]
+        result = conn.execute(query, {"entry_id": entry_id})
+        row = result.mappings().first()
 
-        if not data:
+        if not row:
             return (
                 jsonify(
                     {
@@ -167,7 +192,7 @@ def get_overview(entry_id):
                 404,
             )
 
-        return jsonify(data[0])
+        return jsonify(dict(row))
 
 
 @api_bp.route("/minileagues/<int:entry_id>", methods=["GET"])
