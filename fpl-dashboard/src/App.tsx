@@ -3,9 +3,6 @@ import {
     CssBaseline,
     ThemeProvider,
     Box,
-    TextField,
-    InputAdornment,
-    IconButton,
 } from '@mui/material';
 import {
     useLocation,
@@ -35,10 +32,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import EqualizerIcon from "@mui/icons-material/Equalizer";
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import SearchIcon from '@mui/icons-material/Search';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 
-// Refactored NAVIGATION with headers and dividers
+
 const NAVIGATION: Navigation = [
     {
         segment: 'overview',
@@ -66,35 +61,6 @@ const NAVIGATION: Navigation = [
         icon: <SwapHorizIcon />,
     },
 ];
-
-function CustomToolbarActions() {
-    return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TextField
-                variant="outlined"
-                placeholder="Search"
-                size="small"
-                InputProps={{
-                    startAdornment: (
-                        <InputAdornment position="start">
-                            <SearchIcon />
-                        </InputAdornment>
-                    ),
-                }}
-                sx={{
-                    width: '40%',
-                    minWidth: '200px',
-                    maxWidth: '400px',
-                    backgroundColor: 'transparent',
-                    mr: 2,
-                }}
-            />
-            <IconButton color="inherit" size="large">
-                <NotificationsNoneIcon />
-            </IconButton>
-        </Box>
-    );
-}
 
 export const App = () => {
     const [entryId, setEntryId] = React.useState<number | null>(null);
@@ -143,11 +109,7 @@ export const App = () => {
                         <Route
                             path="/*"
                             element={
-                                <DashboardLayout
-                                    slots={{
-                                        toolbarActions: CustomToolbarActions,
-                                    }}
-                                >
+                                <DashboardLayout>
                                     <Routes>
                                         <Route path="/" element={<Navigate to="/overview" replace />} />
                                         <Route
