@@ -10,7 +10,6 @@ from db.schema import (
     mini_league_gameweek_scores,
     teams,
     positions,
-    overview,
     gameweeks,
     gameweek_history,
     users,
@@ -51,10 +50,10 @@ def sync_user(entry_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@api_bp.route("sync/history/<int:entry_id>", methods=["POST"])
-def sync_gameweeks_history(entry_id):
+@api_bp.route("sync/leagues/<int:entry_id>", methods=["POST"])
+def sync_league_members(entry_id):
     try:
-        if data_sync.sync_gameweeks_history_data(entry_id):
+        if data_sync.sync_all_league_members_history(entry_id):
             return jsonify({"status": "success"}), 200
         return jsonify({"status": "failed"}), 400
     except Exception as e:
@@ -68,7 +67,7 @@ def get_players():
         return jsonify([dict(row) for row in result.mappings()])
 
 
-@api_bp.route("/gameweeks/<int:entry_id>", methods=["GET"])
+@api_bp.route("/gameweek_history/<int:entry_id>", methods=["GET"])
 def get_gameweeks_history_data(entry_id):
     with db.engine.connect() as conn:
         result = conn.execute(

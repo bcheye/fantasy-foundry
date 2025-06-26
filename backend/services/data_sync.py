@@ -77,6 +77,24 @@ class FPLDataSync:
         self, entry_id: int, entry_data: Dict[str, Any], history_data: Dict[str, Any]
     ) -> bool:
         try:
+            leagues_data = entry_data.get("leagues", {})
+            mini_leagues_data = []
+
+            for league in leagues_data.get("classic", []):
+                mini_leagues_data.append(
+                    {
+                        "entry_id": entry_id,
+                        "league_id": league["id"],
+                        "name": league["name"],
+                        "created": (
+                            datetime.fromisoformat(league["created"].replace("Z", ""))
+                            if league.get("created")
+                            else None
+                        ),
+                        "league_type": league.get("league_type"),
+                    }
+                )
+
             overview_data = [
                 {
                     "entry_id": entry_id,
@@ -106,6 +124,9 @@ class FPLDataSync:
             )
             self.db.batch_upsert_on_conflict(
                 gameweek_history, gameweek_history_data, ["entry_id", "gameweek"]
+            )
+            self.db.batch_upsert_on_conflict(
+                mini_leagues, mini_leagues_data, ["entry_id", "league_id"]
             )
             return True
         except Exception as e:
@@ -257,7 +278,7 @@ class FPLDataSync:
             logger.exception("❌ Error syncing bootstrap data")
             return False
 
-    def sync_all_league_members_history(self, entry_id: int, pages: int = 2) -> bool:
+    def sync_all_league_members_history(self, entry_id: int, pages: int = 5) -> bool:
         logger.info(f"🔁 Syncing league members for entry {entry_id} (pages={pages})")
         self.sync_user_data(entry_id)
         with self.db.engine.connect() as conn:
@@ -297,6 +318,7 @@ if __name__ == "__main__":
         user="bcheye", password="password", host="localhost", database="fpl_db"
     )
     fpl = FPLDataSync(db)
-    fpl.sync_all_league_members_history(
-        entry_id=3530111, pages=5
-    )  # Fetch 3 pages instead of default 2
+    fpl.sync_user_data(182161)
+    # fpl.sync_all_league_members_history(
+    #     entry_id=3530111, pages=5
+    # )  # Fetch 3 pages instead of default 2
