@@ -14,6 +14,7 @@ from db.schema import (
     mini_leagues,
     overview,
     gameweek_history,
+    mini_league_standings,
 )
 
 logger = logging.getLogger(__name__)
@@ -312,13 +313,123 @@ class FPLDataSync:
                     all_success = False
         return all_success
 
+    def sync_minileague_standings(self, league_id: int, gameweek: int) -> bool:
+        """
+        Synchronizes mini-league standings for a specific league and gameweek,
+        handling pagination to retrieve all entries.
+
+        Args:
+            league_id (int): The ID of the mini-league.
+            gameweek (int): The gameweek for which to fetch standings.
+
+        Returns:
+            bool: True if standings were successfully synced, False otherwise.
+        """
+        all_standings_data: List[Dict[str, Any]] = []
+        page = 1
+        has_next = True
+        total_entries_fetched = 0
+        start_time = time.time()
+
+        while has_next:
+            try:
+                url = f"{self.BASE_URL}/leagues-classic/{league_id}/standings/?event={gameweek}&page_standings={page}"
+                data = self._safe_get(url)
+
+                if not data:
+                    logger.warning(
+                        f"Failed to fetch data for league {league_id}, GW{gameweek}, page {page}."
+                    )
+                    # If a page fails, decide if you want to stop or continue with the next page
+                    # For now, we'll continue but this page's data will be missed.
+                    has_next = False  # Assume no more pages if a fetch fails
+                    continue
+
+                if "standings" not in data or "results" not in data["standings"]:
+                    logger.warning(
+                        f"No 'standings' or 'results' in data for league {league_id}, GW{gameweek}, page {page}."
+                    )
+                    has_next = False
+                    continue
+
+                page_results = data["standings"]["results"]
+                if not page_results:
+                    logger.info(
+                        f"No more results found for league {league_id}, GW{gameweek} on page {page}. Stopping pagination."
+                    )
+                    has_next = False
+                    continue
+
+                for entry in page_results:
+                    all_standings_data.append(
+                        {
+                            "entry_id": entry["entry"],
+                            "league_id": league_id,
+                            "gameweek": gameweek,
+                            "rank": entry["rank"],
+                            "last_rank": entry["last_rank"],
+                            "entry_name": entry["entry_name"],
+                            "player_name": entry["player_name"],
+                            "total_points": entry["total"],
+                        }
+                    )
+                total_entries_fetched += len(page_results)
+                logger.info(
+                    f"Fetched {len(page_results)} entries from league {league_id}, GW{gameweek}, page {page}."
+                )
+
+                # Check for 'has_next' flag (if available) or rely on empty results
+                # The FPL API often returns 'has_next': True/False
+                has_next = data["standings"].get("has_next", False)
+                if has_next:
+                    page += 1
+                else:
+                    logger.info(
+                        f"No more pages indicated for league {league_id}, GW{gameweek}. Total entries collected: {total_entries_fetched}"
+                    )
+
+                # Add a small delay between page requests to be polite to the API
+                time.sleep(0.1)
+
+            except Exception as e:
+                logger.error(
+                    f"❌ Error during pagination for league {league_id}, GW{gameweek}, page {page}: {e}"
+                )
+                has_next = False  # Stop if an error occurs
+
+        if not all_standings_data:
+            logger.warning(
+                f"No standings data collected for league {league_id} and gameweek {gameweek}."
+            )
+            return False
+
+        try:
+            self.db.batch_upsert_on_conflict(
+                mini_league_standings,
+                all_standings_data,
+                ["entry_id", "league_id", "gameweek"],
+            )
+            logger.info(
+                f"✅ Synced {len(all_standings_data)} standings entries for league {league_id} in GW{gameweek} in {time.time() - start_time:.2f}s"
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                f"❌ Error upserting collected standings for league {league_id}, GW{gameweek}: {e}"
+            )
+            return False
+
 
 if __name__ == "__main__":
     db = SQLAlchemyConnector(
         user="bcheye", password="password", host="localhost", database="fpl_db"
     )
     fpl = FPLDataSync(db)
-    fpl.sync_user_data(182161)
+    # fpl.sync_user_data(182161)
     # fpl.sync_all_league_members_history(
     #     entry_id=3530111, pages=5
     # )  # Fetch 3 pages instead of default 2
+
+    large_league_id = 797211  # Your league ID with 500+ members
+    current_gameweek = 38  # Or whatever the latest gameweek is
+    fpl.sync_minileague_standings(large_league_id, current_gameweek)

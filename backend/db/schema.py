@@ -156,6 +156,18 @@ users = Table(
         onupdate=func.now(),
     ),
 )
+mini_league_standings = Table(
+    "mini_league_standings",
+    metadata,
+    Column("entry_id", Integer, primary_key=True),
+    Column("league_id", Integer, primary_key=True),
+    Column("gameweek", Integer, primary_key=True),
+    Column("rank", Integer),
+    Column("last_rank", Integer),
+    Column("entry_name", String),
+    Column("player_name", String),
+    Column("total_points", Integer),
+)
 # Create schema and tables
 if __name__ == "__main__":
     with db:  # Ensures connection + disposal
