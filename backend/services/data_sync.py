@@ -1,10 +1,6 @@
 import requests
-import logging
-import time
 from datetime import datetime
 from sqlalchemy import select, and_
-from typing import Optional, List, Set, Dict, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from db.connector import SQLAlchemyConnector
 from db.schema import (
     players,
@@ -12,90 +8,114 @@ from db.schema import (
     gameweeks,
     positions,
     mini_leagues,
+    mini_league_entries,
+    mini_league_gameweek_scores,
     overview,
     gameweek_history,
-    mini_league_standings,
-)
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
 
 class FPLDataSync:
     BASE_URL = "https://fantasy.premierleague.com/api"
-    REQUEST_TIMEOUT = 10
-    MAX_WORKERS = 20
 
     def __init__(self, db: SQLAlchemyConnector):
         self.db = db
-        self.session = requests.Session()
-        self.session.headers.update(
-            {"User-Agent": "FPLDataSync/1.0", "Accept": "application/json"}
-        )
 
-    def _safe_get(self, url: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
-        for attempt in range(max_retries):
-            try:
-                response = self.session.get(url, timeout=self.REQUEST_TIMEOUT)
-                response.raise_for_status()
-                return response.json()
-            except Exception as e:
-                logger.warning(f"[Attempt {attempt+1}] Failed to fetch {url}: {e}")
-                time.sleep(0.5 * (attempt + 1))
-        return None
+    def sync_bootstrap_data(self) -> bool:
+        """Sync all static data from bootstrap-static endpoint into the database."""
 
-    def _fetch_league_page(self, league_id: int, page: int) -> List[int]:
-        data = self._safe_get(
-            f"{self.BASE_URL}/leagues-classic/{league_id}/standings/?page={page}"
-        )
-        if data and "standings" in data and "results" in data["standings"]:
-            return [entry["entry"] for entry in data["standings"]["results"]]
-        return []
-
-    def _get_league_entries(
-        self, league_id: int, entry_id: int, pages: int = 2
-    ) -> Set[int]:
-        entries = set()
-        with ThreadPoolExecutor(max_workers=pages) as executor:
-            futures = {
-                executor.submit(self._fetch_league_page, league_id, page): page
-                for page in range(1, pages + 1)
-            }
-            for future in as_completed(futures):
-                try:
-                    entries.update(future.result())
-                except Exception as e:
-                    logger.warning(
-                        f"Page {futures[future]} failed for league {league_id}: {e}"
-                    )
-        if entry_id not in entries:
-            entries.add(entry_id)
-        return entries
-
-    def _process_entry_data(
-        self, entry_id: int, entry_data: Dict[str, Any], history_data: Dict[str, Any]
-    ) -> bool:
         try:
+            response = requests.get(f"{self.BASE_URL}/bootstrap-static/", timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            teams_data = [
+                {
+                    "team_id": t["id"],
+                    "name": t["name"],
+                    "short_name": t["short_name"],
+                    "strength_overall_home": t["strength_overall_home"],
+                    "strength_overall_away": t["strength_overall_away"],
+                }
+                for t in data["teams"]
+            ]
+            self.db.batch_upsert_on_conflict(teams, teams_data, ["team_id"])
+
+            positions_data = [
+                {
+                    "position_type_id": p["id"],
+                    "singular_name": p["singular_name"],
+                    "plural_name": p["plural_name_short"],
+                }
+                for p in data["element_types"]
+            ]
+            self.db.batch_upsert_on_conflict(
+                positions, positions_data, ["position_type_id"]
+            )
+
+            players_data = [
+                {
+                    "player_id": p["id"],
+                    "first_name": p["first_name"],
+                    "second_name": p["second_name"],
+                    "name": p["web_name"],
+                    "team": p["team"],
+                    "position_type_id": p["element_type"],
+                    "cost": p["now_cost"] / 10,
+                    "total_points": p["total_points"],
+                    "selected_by_percent": p["selected_by_percent"],
+                    "minutes": p["minutes"],
+                    "goals_scored": p["goals_scored"],
+                    "assists": p["assists"],
+                    "clean_sheets": p["clean_sheets"],
+                    "yellow_cards": p["yellow_cards"],
+                    "red_cards": p["red_cards"],
+                }
+                for p in data["elements"]
+            ]
+            self.db.batch_upsert_on_conflict(players, players_data, ["player_id"])
+
+            gameweeks_data = [
+                {
+                    "gameweek_id": gw["id"],
+                    "name": gw["name"],
+                    "deadline_time": datetime.fromisoformat(gw["deadline_time"]),
+                    "average_entry_score": gw["average_entry_score"],
+                    "finished": gw["finished"],
+                    "data_checked": gw["data_checked"],
+                    "is_current": gw["is_current"],
+                    "is_next": gw["is_next"],
+                }
+                for gw in data["events"]
+            ]
+            self.db.batch_upsert_on_conflict(gameweeks, gameweeks_data, ["gameweek_id"])
+
+            return True
+
+        except requests.exceptions.RequestException as req_err:
+            print(f"❌ Network or API error syncing bootstrap data: {req_err}")
+            raise req_err
+        except Exception as e:
+            print(f"❌ Error syncing bootstrap data: {e}")
+            raise e
+
+    def sync_user_data(self, entry_id: int) -> bool:
+        """
+        Syncs general user/team (entry_id) data, specifically their
+        mini-league memberships (metadata) and initial team info.
+        This function no longer handles gameweek scores.
+        """
+        try:
+            entry_response = requests.get(
+                f"{self.BASE_URL}/entry/{entry_id}/", timeout=10
+            )
+            entry_response.raise_for_status()
+            entry_data = entry_response.json()
+
             leagues_data = entry_data.get("leagues", {})
+
+            mini_league_entries_data = []
             mini_leagues_data = []
-
-            for league in leagues_data.get("classic", []):
-                mini_leagues_data.append(
-                    {
-                        "entry_id": entry_id,
-                        "league_id": league["id"],
-                        "name": league["name"],
-                        "created": (
-                            datetime.fromisoformat(league["created"].replace("Z", ""))
-                            if league.get("created")
-                            else None
-                        ),
-                        "league_type": league.get("league_type"),
-                    }
-                )
-
             overview_data = [
                 {
                     "entry_id": entry_id,
@@ -106,330 +126,408 @@ class FPLDataSync:
                     "team_value": entry_data.get("last_deadline_value"),
                 }
             ]
-            gameweek_history_data = [
-                {
-                    "entry_id": entry_id,
-                    "gameweek": gw["event"],
-                    "points": gw["points"],
-                    "total_points": gw["total_points"],
-                    "overall_rank": gw["overall_rank"],
-                    "team_value": gw["value"],
-                    "cost": gw["event_transfers_cost"],
-                    "points_on_bench": gw["points_on_bench"],
-                }
-                for gw in history_data.get("current", [])
-            ]
 
-            self.db.batch_upsert_on_conflict(
-                overview, overview_data, ["entry_id", "current_gameweek"]
-            )
-            self.db.batch_upsert_on_conflict(
-                gameweek_history, gameweek_history_data, ["entry_id", "gameweek"]
-            )
-            self.db.batch_upsert_on_conflict(
-                mini_leagues, mini_leagues_data, ["entry_id", "league_id"]
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Upsert failed for entry {entry_id}: {e}")
-            return False
-
-    def _sync_single_entry_history(self, entry_id: int) -> bool:
-        try:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                entry_future = executor.submit(
-                    self._safe_get, f"{self.BASE_URL}/entry/{entry_id}/"
-                )
-                history_future = executor.submit(
-                    self._safe_get, f"{self.BASE_URL}/entry/{entry_id}/history/"
-                )
-                entry_data = entry_future.result()
-                history_data = history_future.result()
-            if not entry_data or not history_data:
-                return False
-            return self._process_entry_data(entry_id, entry_data, history_data)
-        except Exception as e:
-            logger.warning(f"Sync failed for entry {entry_id}: {e}")
-            return False
-
-    def _process_single_league(
-        self, league_id: int, league_name: str, main_entry_id: int, pages: int = 2
-    ) -> bool:
-        logger.info(f"⏳ Processing league: {league_name} ({league_id})")
-        entry_ids = self._get_league_entries(league_id, main_entry_id, pages)
-        success_count = 0
-        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
-            futures = {
-                executor.submit(self._sync_single_entry_history, eid): eid
-                for eid in entry_ids
-            }
-            for future in as_completed(futures):
-                eid = futures[future]
-                try:
-                    if future.result():
-                        success_count += 1
-                    else:
-                        logger.warning(f"❌ Entry {eid} failed in league {league_name}")
-                except Exception as e:
-                    logger.error(f"Error for entry {eid} in league {league_name}: {e}")
-        logger.info(
-            f"✅ {success_count}/{len(entry_ids)} synced for league {league_name}"
-        )
-        return success_count == len(entry_ids)
-
-    def sync_user_data(self, entry_id: int) -> bool:
-        try:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                entry_future = executor.submit(
-                    self._safe_get, f"{self.BASE_URL}/entry/{entry_id}/"
-                )
-                history_future = executor.submit(
-                    self._safe_get, f"{self.BASE_URL}/entry/{entry_id}/history/"
-                )
-                entry_data = entry_future.result()
-                history_data = history_future.result()
-            if not entry_data or not history_data:
-                return False
-            return self._process_entry_data(entry_id, entry_data, history_data)
-        except Exception as e:
-            logger.exception(f"Sync user failed for {entry_id}")
-            return False
-
-    def sync_bootstrap_data(self) -> bool:
-        try:
-            data = self._safe_get(f"{self.BASE_URL}/bootstrap-static/")
-            if not data:
-                return False
-            tables = [
-                (
-                    teams,
-                    [
+            if "classic" in leagues_data:
+                for league in leagues_data["classic"]:
+                    # mini_leagues table
+                    mini_leagues_data.append(
                         {
-                            "team_id": t["id"],
-                            "name": t["name"],
-                            "short_name": t["short_name"],
-                            "strength_overall_home": t["strength_overall_home"],
-                            "strength_overall_away": t["strength_overall_away"],
-                        }
-                        for t in data["teams"]
-                    ],
-                    ["team_id"],
-                ),
-                (
-                    positions,
-                    [
-                        {
-                            "position_type_id": p["id"],
-                            "singular_name": p["singular_name"],
-                            "plural_name": p["plural_name_short"],
-                        }
-                        for p in data["element_types"]
-                    ],
-                    ["position_type_id"],
-                ),
-                (
-                    players,
-                    [
-                        {
-                            "player_id": p["id"],
-                            "first_name": p["first_name"],
-                            "second_name": p["second_name"],
-                            "name": p["web_name"],
-                            "team": p["team"],
-                            "position_type_id": p["element_type"],
-                            "cost": p["now_cost"] / 10,
-                            "total_points": p["total_points"],
-                            "selected_by_percent": p["selected_by_percent"],
-                            "minutes": p["minutes"],
-                            "goals_scored": p["goals_scored"],
-                            "assists": p["assists"],
-                            "clean_sheets": p["clean_sheets"],
-                            "yellow_cards": p["yellow_cards"],
-                            "red_cards": p["red_cards"],
-                        }
-                        for p in data["elements"]
-                    ],
-                    ["player_id"],
-                ),
-                (
-                    gameweeks,
-                    [
-                        {
-                            "gameweek_id": gw["id"],
-                            "name": gw["name"],
-                            "deadline_time": datetime.fromisoformat(
-                                gw["deadline_time"]
+                            "entry_id": entry_id,
+                            "league_id": league["id"],
+                            "name": league["name"],
+                            "created": (
+                                datetime.fromisoformat(league["created"][:-1])
+                                if league["created"]
+                                else None
                             ),
-                            "average_entry_score": gw["average_entry_score"],
-                            "finished": gw["finished"],
-                            "data_checked": gw["data_checked"],
-                            "is_current": gw["is_current"],
-                            "is_next": gw["is_next"],
+                            "league_type": league.get("league_type"),
                         }
-                        for gw in data["events"]
-                    ],
-                    ["gameweek_id"],
-                ),
-            ]
-            for table, records, keys in tables:
-                self.db.batch_upsert_on_conflict(table, records, keys)
-            logger.info("✅ Bootstrap data synced successfully.")
-            return True
-        except Exception as e:
-            logger.exception("❌ Error syncing bootstrap data")
-            return False
-
-    def sync_all_league_members_history(self, entry_id: int, pages: int = 5) -> bool:
-        logger.info(f"🔁 Syncing league members for entry {entry_id} (pages={pages})")
-        self.sync_user_data(entry_id)
-        with self.db.engine.connect() as conn:
-            result = conn.execute(
-                select(mini_leagues.c.league_id, mini_leagues.c.name).where(
-                    and_(
-                        mini_leagues.c.entry_id == entry_id,
-                        mini_leagues.c.league_type == "x",
                     )
+
+                    # mini_league_entries table
+                    mini_league_entries_data.append(
+                        {
+                            "entry_id": entry_id,
+                            "entry_name": entry_data["name"],
+                            "player_name": f"{entry_data['player_first_name']} {entry_data['player_last_name']}",
+                            "rank": league["entry_rank"],
+                            "total": entry_data.get(
+                                "summary_overall_points"
+                            ),  # Optional: store points
+                            "league_id": league["id"],
+                        }
+                    )
+
+            if overview_data:
+                self.db.batch_upsert_on_conflict(
+                    overview, overview_data, ["entry_id", "current_gameweek"]
                 )
-            ).fetchall()
-        if not result:
-            logger.warning(f"No leagues found for entry {entry_id}")
+            if mini_leagues_data:
+                self.db.batch_upsert_on_conflict(
+                    mini_leagues, mini_leagues_data, ["entry_id", "league_id"]
+                )
+
+            if mini_league_entries_data:
+                self.db.batch_upsert_on_conflict(
+                    mini_league_entries,
+                    mini_league_entries_data,
+                    ["entry_id", "league_id"],
+                )
+
+            return True
+
+        except requests.exceptions.RequestException as req_err:
+            print(f"Network/API error while syncing entry {entry_id}: {req_err}")
+            raise req_err
+        except Exception as e:
+            print(f"Unexpected error syncing entry {entry_id}: {e}")
+            raise e
+
+    def sync_live_gameweek_data(self, event_id: int) -> bool:
+        """Sync live stats data for a specific gameweek into the players table."""
+        try:
+            live_response = requests.get(
+                f"{self.BASE_URL}/event/{event_id}/live/", timeout=10
+            )
+            live_response.raise_for_status()
+            live_data = live_response.json()
+
+            player_stats = []
+            for player in live_data["elements"]:
+                stats = player["stats"]
+                player_stats.append(
+                    {
+                        "player_id": player["id"],
+                        "minutes": stats["minutes"],
+                        "goals_scored": stats["goals_scored"],
+                        "assists": stats["assists"],
+                        "clean_sheets": stats["clean_sheets"],
+                        "yellow_cards": stats["yellow_cards"],
+                        "red_cards": stats["red_cards"],
+                    }
+                )
+
+            if player_stats:
+                self.db.batch_upsert_on_conflict(players, player_stats, ["player_id"])
+
+            return True
+
+        except requests.exceptions.RequestException as req_err:
+            print(
+                f"Network/API error syncing live data for gameweek {event_id}: {req_err}"
+            )
+            raise req_err
+        except Exception as e:
+            print(f"Unexpected error syncing live data for gameweek {event_id}: {e}")
+            raise e
+
+    def sync_fixtures(self) -> bool:
+        """Sync fixture data"""
+        try:
+            fixtures_response = requests.get(f"{self.BASE_URL}/fixtures/", timeout=10)
+            fixtures_response.raise_for_status()
+            fixtures_data = fixtures_response.json()
+
+            print(f"Received {len(fixtures_data)} fixtures")
+            return True
+
+        except requests.exceptions.RequestException as req_err:
+            print(f"Network or API error syncing fixtures: {req_err}")
             return False
-        all_success = True
-        with ThreadPoolExecutor(
-            max_workers=min(self.MAX_WORKERS, len(result))
-        ) as executor:
-            futures = [
-                executor.submit(
-                    self._process_single_league, lid, lname, entry_id, pages
+        except Exception as e:
+            print(f"Error syncing fixtures: {e}")
+            return False
+
+    def sync_gameweeks_history_data(self, entry_id: int) -> bool:
+        try:
+            gameweek_history_data = []
+
+            # Fetch gameweek history
+            history_resp = requests.get(
+                f"{self.BASE_URL}/entry/{entry_id}/history/", timeout=10
+            )
+            history_resp.raise_for_status()
+            history_data = history_resp.json()
+
+            for gw in history_data.get("current", []):
+                gameweek_history_data.append(
+                    {
+                        "entry_id": entry_id,
+                        "gameweek": gw["event"],
+                        "points": gw["points"],
+                        "total_points": gw["total_points"],
+                        "overall_rank": gw["overall_rank"],
+                        "team_value": gw["value"],
+                        "cost": gw["event_transfers_cost"],
+                        "points_on_bench": gw["points_on_bench"],
+                    }
                 )
-                for lid, lname in result
-            ]
-            for future in as_completed(futures):
-                try:
-                    if not future.result():
-                        all_success = False
-                except Exception as e:
-                    logger.error(f"League processing failed: {e}")
-                    all_success = False
-        return all_success
+            if gameweek_history_data:
+                self.db.batch_upsert_on_conflict(
+                    gameweek_history,
+                    gameweek_history_data,
+                    ["entry_id", "gameweek"],
+                )
+            return True
+        except requests.exceptions.RequestException as e:
+            print(f"Network or API error: {e}")
+            raise e
+            return False
+        except Exception as ex:
+            raise ex
+            return False
 
-    def sync_minileague_standings(self, league_id: int, gameweek: int) -> bool:
+    def sync_league_managers_data(self, league_id: int) -> bool:
         """
-        Synchronizes mini-league standings for a specific league and gameweek,
-        handling pagination to retrieve all entries.
-
-        Args:
-            league_id (int): The ID of the mini-league.
-            gameweek (int): The gameweek for which to fetch standings.
-
-        Returns:
-            bool: True if standings were successfully synced, False otherwise.
+        Sync data for all managers (entries) within a specified mini-league.
+        This includes league info, entry details, and historical gameweek scores.
         """
-        all_standings_data: List[Dict[str, Any]] = []
         page = 1
         has_next = True
-        total_entries_fetched = 0
-        start_time = time.time()
+        all_entries_synced = True
+
+        print(f"🔄 Starting sync for league ID: {league_id}")
 
         while has_next:
             try:
-                url = f"{self.BASE_URL}/leagues-classic/{league_id}/standings/?event={gameweek}&page_standings={page}"
-                data = self._safe_get(url)
+                league_url = f"{self.BASE_URL}/leagues-classic/{league_id}/standings/?page={page}"
+                print(f"➡ Fetching standings page {page}: {league_url}")
+                response = requests.get(league_url, timeout=15)
+                response.raise_for_status()
+                league_data = response.json()
 
-                if not data:
-                    logger.warning(
-                        f"Failed to fetch data for league {league_id}, GW{gameweek}, page {page}."
+                # Upsert basic league info
+                if "standings" in league_data and "league" in league_data:
+                    league_info = league_data["league"]
+                    self.db.batch_upsert_on_conflict(
+                        mini_leagues,
+                        [
+                            {
+                                "league_id": league_info["id"],
+                                "name": league_info["name"],
+                                "created": (
+                                    datetime.fromisoformat(league_info["created"][:-1])
+                                    if league_info["created"]
+                                    else None
+                                ),
+                                "league_type": "x",
+                            }
+                        ],
+                        ["league_id"],
                     )
-                    # If a page fails, decide if you want to stop or continue with the next page
-                    # For now, we'll continue but this page's data will be missed.
-                    has_next = False  # Assume no more pages if a fetch fails
-                    continue
 
-                if "standings" not in data or "results" not in data["standings"]:
-                    logger.warning(
-                        f"No 'standings' or 'results' in data for league {league_id}, GW{gameweek}, page {page}."
-                    )
-                    has_next = False
-                    continue
+                if "standings" in league_data and "results" in league_data["standings"]:
+                    entries = league_data["standings"]["results"]
+                    print(f"📄 Page {page} contains {len(entries)} entries.")
 
-                page_results = data["standings"]["results"]
-                if not page_results:
-                    logger.info(
-                        f"No more results found for league {league_id}, GW{gameweek} on page {page}. Stopping pagination."
-                    )
-                    has_next = False
-                    continue
+                    mini_league_entries_batch = []
+                    mini_league_gameweek_scores_batch = []
 
-                for entry in page_results:
-                    all_standings_data.append(
-                        {
-                            "entry_id": entry["entry"],
-                            "league_id": league_id,
-                            "gameweek": gameweek,
-                            "rank": entry["rank"],
-                            "last_rank": entry["last_rank"],
-                            "entry_name": entry["entry_name"],
-                            "player_name": entry["player_name"],
-                            "total_points": entry["total"],
-                        }
-                    )
-                total_entries_fetched += len(page_results)
-                logger.info(
-                    f"Fetched {len(page_results)} entries from league {league_id}, GW{gameweek}, page {page}."
-                )
+                    for entry in entries:
+                        entry_id = entry["entry"]
+                        entry_name = entry["entry_name"]
+                        player_name = entry["player_name"]
+                        print(f"  ➕ Processing entry: {entry_name} ({entry_id})")
 
-                # Check for 'has_next' flag (if available) or rely on empty results
-                # The FPL API often returns 'has_next': True/False
-                has_next = data["standings"].get("has_next", False)
-                if has_next:
-                    page += 1
+                        try:
+                            # Fetch entry metadata
+                            entry_resp = requests.get(
+                                f"{self.BASE_URL}/entry/{entry_id}/", timeout=10
+                            )
+                            entry_resp.raise_for_status()
+                            entry_data = entry_resp.json()
+
+                            # Fetch gameweek history
+                            history_resp = requests.get(
+                                f"{self.BASE_URL}/entry/{entry_id}/history/", timeout=10
+                            )
+                            history_resp.raise_for_status()
+                            history_data = history_resp.json()
+
+                            # Add entry to batch
+                            mini_league_entries_batch.append(
+                                {
+                                    "entry_id": entry_id,
+                                    "entry_name": entry_data["name"],
+                                    "player_name": f"{entry_data['player_first_name']} {entry_data['player_last_name']}",
+                                    "rank": entry["rank"],
+                                    "total": entry["total"],
+                                    "league_id": league_id,
+                                }
+                            )
+
+                            # Add gameweek scores to batch
+                            for gw in history_data.get("current", []):
+                                mini_league_gameweek_scores_batch.append(
+                                    {
+                                        "entry_id": entry_id,
+                                        "league_id": league_id,
+                                        "gameweek": gw["event"],
+                                        "points": gw["points"],
+                                        "cost": gw["event_transfers_cost"],
+                                    }
+                                )
+
+                        except requests.exceptions.RequestException as ind_err:
+                            print(f"  ❌ Request error for entry {entry_id}: {ind_err}")
+                            all_entries_synced = False
+                            raise ind_err
+                        except Exception as ex:
+                            print(f"  ❌ Processing error for entry {entry_id}: {ex}")
+                            all_entries_synced = False
+                            raise ex
+
+                    # Perform batch upserts
+                    if mini_league_entries_batch:
+                        self.db.batch_upsert_on_conflict(
+                            mini_league_entries,
+                            mini_league_entries_batch,
+                            ["entry_id", "league_id"],
+                        )
+
+                    if mini_league_gameweek_scores_batch:
+                        self.db.batch_upsert_on_conflict(
+                            mini_league_gameweek_scores,
+                            mini_league_gameweek_scores_batch,
+                            ["entry_id", "gameweek", "league_id"],
+                        )
+
+                    has_next = league_data["standings"]["has_next"]
+                    page += 1 if has_next else 0
                 else:
-                    logger.info(
-                        f"No more pages indicated for league {league_id}, GW{gameweek}. Total entries collected: {total_entries_fetched}"
+                    print(
+                        f"⚠ No standings found for league {league_id} on page {page}."
                     )
+                    has_next = False
 
-                # Add a small delay between page requests to be polite to the API
-                time.sleep(0.1)
-
+            except requests.exceptions.RequestException as req_err:
+                print(f"❌ Network error on league {league_id}, page {page}: {req_err}")
+                all_entries_synced = False
+                has_next = False
+                raise req_err
             except Exception as e:
-                logger.error(
-                    f"❌ Error during pagination for league {league_id}, GW{gameweek}, page {page}: {e}"
-                )
-                has_next = False  # Stop if an error occurs
+                print(f"❌ General error on league {league_id}, page {page}: {e}")
+                all_entries_synced = False
+                has_next = False
+                raise e
 
-        if not all_standings_data:
-            logger.warning(
-                f"No standings data collected for league {league_id} and gameweek {gameweek}."
+        print(
+            f"{'✅ All entries synced successfully' if all_entries_synced else '⚠ Sync completed with some issues'} for league {league_id}."
+        )
+        return all_entries_synced
+
+    def sync_all_invitational_classic_leagues_for_user(
+        self, user_entry_id: int
+    ) -> bool:
+        """
+        Orchestrates syncing all managers from invitational classic leagues (type 'x') that a user is part of.
+        Filters out any excluded league IDs, then syncs entries and scores for each relevant league.
+        """
+        print(
+            f"\n🔍 Checking invitational classic leagues for user entry ID: {user_entry_id}"
+        )
+
+        # Step 1: Sync the user's own data to populate their league memberships
+        if not self.sync_user_data(user_entry_id):
+            print(
+                f"❌ Failed to sync data for entry {user_entry_id}. Aborting league sync."
             )
             return False
 
+        # Step 2: Fetch relevant invitational leagues from the DB
         try:
-            self.db.batch_upsert_on_conflict(
-                mini_league_standings,
-                all_standings_data,
-                ["entry_id", "league_id", "gameweek"],
+            excluded_league_ids = [
+                1194,
+                1024840,
+                780750,
+                797211,
+                1647816,
+                1473122,
+                1054607,
+                1001856,
+                866318,
+                697404,
+                154756,
+                34236,
+            ]
+
+            with self.db.engine.connect() as conn:
+                stmt = select(mini_leagues.c.league_id, mini_leagues.c.name).where(
+                    and_(
+                        mini_leagues.c.league_type == "x",
+                        mini_leagues.c.league_id.notin_(excluded_league_ids),
+                    )
+                )
+                result = conn.execute(stmt)
+                leagues_to_sync = [(row.league_id, row.name) for row in result]
+
+            if not leagues_to_sync:
+                print(
+                    f"ℹ No eligible invitational classic leagues (type 'x') found for entry ID {user_entry_id}."
+                )
+                return True
+
+            print(
+                f"✅ Found {len(leagues_to_sync)} invitational classic leagues (excluding {len(excluded_league_ids)}):"
             )
-            logger.info(
-                f"✅ Synced {len(all_standings_data)} standings entries for league {league_id} in GW{gameweek} in {time.time() - start_time:.2f}s"
-            )
-            return True
+            for league_id, league_name in leagues_to_sync:
+                print(f" • {league_name} (ID: {league_id})")
+
+            # Step 3: Sync all manager data for each of the relevant leagues
+            all_synced_successfully = True
+            for league_id, _ in leagues_to_sync:
+                print(f"\n🔄 Syncing managers for league ID {league_id}...")
+                if not self.sync_league_managers_data(league_id):
+                    print(f"❗ Issues occurred while syncing league ID: {league_id}")
+                    all_synced_successfully = False
+
+            return all_synced_successfully
+
         except Exception as e:
-            logger.error(
-                f"❌ Error upserting collected standings for league {league_id}, GW{gameweek}: {e}"
-            )
+            print(f"❌ Error during invitational league sync: {e}")
             return False
+
+
+# Initialize
+db_connector = SQLAlchemyConnector(
+    user="bcheye", password="password", host="localhost", database="fpl_db", debug=False
+)
 
 
 if __name__ == "__main__":
-    db = SQLAlchemyConnector(
-        user="bcheye", password="password", host="localhost", database="fpl_db"
-    )
-    fpl = FPLDataSync(db)
-    # fpl.sync_user_data(182161)
-    # fpl.sync_all_league_members_history(
-    #     entry_id=3530111, pages=5
-    # )  # Fetch 3 pages instead of default 2
+    # Entry ID to sync
+    entry_id = 3530111
 
-    large_league_id = 797211  # Your league ID with 500+ members
-    current_gameweek = 38  # Or whatever the latest gameweek is
-    fpl.sync_minileague_standings(large_league_id, current_gameweek)
+    # Initialize the sync service
+    sync_service = FPLDataSync(db_connector)
+
+    print(f"\n=== STARTING FULL SYNC for entry ID: {entry_id} ===")
+
+    # if sync_service.sync_bootstrap_data():
+    #     print("Done")
+    # else:
+    #     print(777)
+
+    # # Step 1: Sync user data (includes league membership)
+    if sync_service.sync_gameweeks_history_data(entry_id):
+        print("✅ User data synced successfully.")
+    else:
+        print("❌ Failed to sync user data.")
+    #
+    # # Step 2: Sync all invitational classic leagues for the user
+    # if sync_service.sync_all_invitational_classic_leagues_for_user(entry_id):
+    #     print("✅ All invitational classic leagues synced successfully.")
+    # else:
+    #     print("❌ Some invitational classic leagues failed to sync.")
+    #
+    # # Step 3: Sync live gameweek data (you can set event_id dynamically or hardcode it)
+    # from datetime import datetime
+    #
+    # current_event_id = datetime.now().isocalendar().week  # Optional placeholder
+    #
+    # if sync_service.sync_live_gameweek_data(current_event_id):
+    #     print(f"✅ Live data for gameweek {current_event_id} synced successfully.")
+    # else:
+    #     print(f"❌ Failed to sync live data for gameweek {current_event_id}.")
+
+    print("\n=== FULL SYNC COMPLETED ===")

@@ -73,9 +73,9 @@ export const GameweekChart = ({ gameweeks }: GameweekChartProps) => {
     return (
         <div
             style={{
-                borderRadius: 5,
+                borderRadius: '16px',
                 overflow: 'hidden',
-                backgroundColor: '#27362c',
+                backgroundColor: '#1c2b21',
                 padding: '1rem',
             }}
         >
