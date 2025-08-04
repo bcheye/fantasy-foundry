@@ -143,6 +143,8 @@ users = Table(
     "users",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("first_name", String, nullable=False),
+    Column("last_name", String, nullable=False),
     Column("email", String, unique=True, nullable=False),
     Column("password_hash", String, nullable=False),
     Column("fpl_entry_id", Integer),
@@ -153,6 +155,18 @@ users = Table(
         server_default=func.now(),
         onupdate=func.now(),
     ),
+)
+mini_league_standings = Table(
+    "mini_league_standings",
+    metadata,
+    Column("entry_id", Integer, primary_key=True),
+    Column("league_id", Integer, primary_key=True),
+    Column("gameweek", Integer, primary_key=True),
+    Column("rank", Integer),
+    Column("last_rank", Integer),
+    Column("entry_name", String),
+    Column("player_name", String),
+    Column("total_points", Integer),
 )
 # Create schema and tables
 if __name__ == "__main__":

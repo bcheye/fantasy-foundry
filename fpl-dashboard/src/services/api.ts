@@ -18,6 +18,6 @@ export const fetchMiniLeagues = async (entryId: number) => {
 };
 
 export const fetchGameWeeksData = async (entryId: number) => {
-    const response = await axios.get(`${API_BASE_URL}/api/gameweeks/${entryId}`);
+    const response = await axios.get(`${API_BASE_URL}/api/gameweek_history/${entryId}`);
     return response.data;
 };
