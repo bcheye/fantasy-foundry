@@ -1,202 +1,60 @@
-import * as React from 'react';
-import {
-    CssBaseline,
-    ThemeProvider,
-    Box,
-} from '@mui/material';
-import {
-    useLocation,
-    useNavigate,
-    Routes,
-    Route,
-    Navigate,
-} from 'react-router-dom';
-import {
-    AppProvider,
-    type Navigation,
-} from '@toolpad/core/AppProvider';
-import {
-    DashboardLayout,
-} from '@toolpad/core/DashboardLayout';
-import {
-    PageContainer,
-    Router,
-} from '@toolpad/core';
-
+import { CssBaseline, ThemeProvider, createTheme, Box } from '@mui/material';
 import { Dashboard } from './components/Dashboard';
-import { AuthScreen } from './components/auth/AuthScreen';
-import fplDarkTheme from './theme/fplDarkTheme';
+import { NavigationIcons } from './components/NavigationIcons';
+import { TopBar } from './components/TopBar';
+import {useState} from "react";
+import {AuthModal} from "./components/auth/AuthModal";
 
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import PeopleIcon from '@mui/icons-material/People';
-import EqualizerIcon from "@mui/icons-material/Equalizer";
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-
-
-const NAVIGATION: Navigation = [
-    {
-        segment: 'overview',
-        title: 'Overview',
-        icon: <DashboardIcon />,
+const theme = createTheme({
+    palette: {
+        mode: 'dark',
+        background: {
+            default: '#0f1b13',
+            paper: '#1c2b21',
+        },
+        primary: {
+            main: '#37003c',
+        },
+        secondary: {
+            main: '#00ff87',
+        },
+        text: {
+            primary: '#e6f4ea',
+            secondary: '#d2e6d2',
+        },
     },
-    {
-        segment: 'player-analysis',
-        title: 'Player Analysis',
-        icon: <PeopleIcon />,
+    typography: {
+        fontFamily: 'Inter, sans-serif',
     },
-    {
-        segment: 'team-planner',
-        title: 'Team Planner',
-        icon: <EqualizerIcon />,
-    },
-    {
-        segment: 'mini-league-tracker',
-        title: 'Mini-League Tracker',
-        icon: <EmojiEventsIcon />,
-    },
-    {
-        segment: 'transfers',
-        title: 'Transfers',
-        icon: <SwapHorizIcon />,
-    },
-];
+});
 
 export const App = () => {
-    const [entryId, setEntryId] = React.useState<number | null>(null);
-    const [userName, setUserName] = React.useState<string | null>(null);
+    const [authModalOpen, setAuthModalOpen] = useState(true);
+    const [entryId, setEntryId] = useState<number | null>(null);
 
-    const handleAuthSuccess = (id: number, name: string) => {
+    const handleAuthSuccess = (id: number) => {
         setEntryId(id);
-        setUserName(name);
-        navigate('/overview');
+        setAuthModalOpen(false);
     };
 
-    const location = useLocation();
-    const navigate = useNavigate();
-
-    const toolpadNavigate: Router['navigate'] = React.useCallback(
-        (url: string | URL) => {
-            const path = typeof url === 'string' ? url : url.pathname + url.search;
-            navigate(path);
-        },
-        [navigate]
-    );
-
-    const router = React.useMemo<Router>(() => {
-        return {
-            pathname: location.pathname,
-            searchParams: new URLSearchParams(location.search),
-            navigate: toolpadNavigate,
-        };
-    }, [location, toolpadNavigate]);
-
     return (
-        <ThemeProvider theme={fplDarkTheme}>
+        <ThemeProvider theme={theme}>
             <CssBaseline />
-            <AppProvider
-                navigation={NAVIGATION}
-                router={router}
-                theme={fplDarkTheme}
-                session={entryId ? { user: { name: userName || 'Manager', email: 'user@example.com' } } : null}
-                branding={{
-                    title: 'FPL Analytics',
-                    homeUrl: '/',
-                }}
-            >
-                <Routes>
-                    {entryId ? (
-                        <Route
-                            path="/*"
-                            element={
-                                <DashboardLayout>
-                                    <Routes>
-                                        <Route path="/" element={<Navigate to="/overview" replace />} />
-                                        <Route
-                                            path="/overview"
-                                            element={
-                                                <PageContainer title=''>
-                                                    <Dashboard entryId={entryId} userName={userName} />
-                                                </PageContainer>
-                                            }
-                                        />
-                                        <Route
-                                            path="/player-analysis"
-                                            element={
-                                                <PageContainer title="Player Analysis">
-                                                    <Box sx={{ p: 3 }}>
-                                                        <p>Player Analysis Content</p>
-                                                    </Box>
-                                                </PageContainer>
-                                            }
-                                        />
-                                        <Route
-                                            path="/team-planner"
-                                            element={
-                                                <PageContainer title="Team Planner">
-                                                    <Box sx={{ p: 3 }}>
-                                                        <p>Team Planner Content</p>
-                                                    </Box>
-                                                </PageContainer>
-                                            }
-                                        />
-                                        <Route
-                                            path="/mini-league-tracker"
-                                            element={
-                                                <PageContainer title="Mini-League Tracker">
-                                                    <Box sx={{ p: 3 }}>
-                                                        <p>Mini-League Tracker Content</p>
-                                                    </Box>
-                                                </PageContainer>
-                                            }
-                                        />
-                                        <Route
-                                            path="/transfers"
-                                            element={
-                                                <PageContainer title="Transfers">
-                                                    <Box sx={{ p: 3 }}>
-                                                        <p>Transfers Content</p>
-                                                    </Box>
-                                                </PageContainer>
-                                            }
-                                        />
-                                        <Route
-                                            path="*"
-                                            element={
-                                                <PageContainer>
-                                                    <Box sx={{ p: 3 }}>
-                                                        <p>Page not found!</p>
-                                                    </Box>
-                                                </PageContainer>
-                                            }
-                                        />
-                                    </Routes>
-                                </DashboardLayout>
-                            }
-                        />
-                    ) : (
-                        <>
-                            <Route
-                                path="/"
-                                element={
-                                    <Box
-                                        sx={{
-                                            minHeight: '100vh',
-                                            bgcolor: '#0f1a0e',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                        }}
-                                    >
-                                        <AuthScreen onAuthSuccess={handleAuthSuccess} />
-                                    </Box>
-                                }
-                            />
-                            <Route path="*" element={<Navigate to="/" replace />} />
-                        </>
-                    )}
-                </Routes>
-            </AppProvider>
+            <TopBar />
+            {entryId ? (
+            <Box sx={{ display: 'flex' }}>
+                <NavigationIcons />
+                <Box sx={{ flexGrow: 1, padding: 4 }}>
+                    <Dashboard entryId={entryId}/>
+                </Box>
+            </Box>
+            ) : (
+            <AuthModal
+                open={authModalOpen}
+                onClose={() => setAuthModalOpen(false)}
+                onAuthSuccess={handleAuthSuccess}
+            />
+            )}
         </ThemeProvider>
     );
 };

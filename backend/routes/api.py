@@ -10,11 +10,12 @@ from db.schema import (
     mini_league_gameweek_scores,
     teams,
     positions,
+    overview,
     gameweeks,
     gameweek_history,
     users,
 )
-from sqlalchemy import select, func, desc, text
+from sqlalchemy import select, func, desc
 
 api_bp = Blueprint("api", __name__)
 
@@ -50,10 +51,10 @@ def sync_user(entry_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@api_bp.route("sync/leagues/<int:entry_id>", methods=["POST"])
-def sync_league_members(entry_id):
+@api_bp.route("sync/history/<int:entry_id>", methods=["POST"])
+def sync_gameweeks_history(entry_id):
     try:
-        if data_sync.sync_all_league_members_history(entry_id):
+        if data_sync.sync_gameweeks_history_data(entry_id):
             return jsonify({"status": "success"}), 200
         return jsonify({"status": "failed"}), 400
     except Exception as e:
@@ -67,7 +68,7 @@ def get_players():
         return jsonify([dict(row) for row in result.mappings()])
 
 
-@api_bp.route("/gameweek_history/<int:entry_id>", methods=["GET"])
+@api_bp.route("/gameweeks/<int:entry_id>", methods=["GET"])
 def get_gameweeks_history_data(entry_id):
     with db.engine.connect() as conn:
         result = conn.execute(
@@ -135,7 +136,7 @@ def get_top_performing_players():
 @api_bp.route("/overview/<int:entry_id>", methods=["GET"])
 def get_overview(entry_id):
     with db.engine.connect() as conn:
-        # Check if a current gameweek exists
+        # Get current gameweek
         current_gw = conn.execute(
             select(gameweeks.c.gameweek_id).where(gameweeks.c.is_current == True)
         ).scalar()
@@ -146,41 +147,16 @@ def get_overview(entry_id):
                 404,
             )
 
-        # Define full SQL query with change percentages
-        query = text(
-            """
-                     WITH base AS (
-                         SELECT
-                             entry_id,
-                             gameweek,
-                             points,
-                             ROUND((points - LAG(points) OVER (PARTITION BY entry_id ORDER BY gameweek))
-                                       / NULLIF(LAG(points) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS points_pct_change,
-                             total_points,
-                             ROUND((total_points - LAG(total_points) OVER (PARTITION BY entry_id ORDER BY gameweek))
-                                       / NULLIF(LAG(total_points) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS total_points_pct_change,
-                             overall_rank,
-                             ROUND((LAG(overall_rank) OVER (PARTITION BY entry_id ORDER BY gameweek) - overall_rank)
-                                       / NULLIF(LAG(overall_rank) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS rank_pct_change,
-                             team_value,
-                             ROUND((team_value - LAG(team_value) OVER (PARTITION BY entry_id ORDER BY gameweek))
-                                       / NULLIF(LAG(team_value) OVER (PARTITION BY entry_id ORDER BY gameweek), 0)::numeric * 100, 2) AS team_value_pct_change,
-                             cost,
-                             points_on_bench
-                         FROM fpl.gameweek_history
-                         WHERE entry_id = :entry_id
-                     )
-                     SELECT base.*
-                     FROM base
-                              INNER JOIN fpl.gameweeks ON fpl.gameweeks.gameweek_id = base.gameweek
-                     WHERE fpl.gameweeks.is_current = true
-                     """
+        # Get overview for entry_id and current gameweek
+        query = select(overview).where(
+            (overview.c.entry_id == entry_id)
+            & (overview.c.current_gameweek == current_gw)
         )
 
-        result = conn.execute(query, {"entry_id": entry_id})
-        row = result.mappings().first()
+        result = conn.execute(query)
+        data = [dict(row) for row in result.mappings()]
 
-        if not row:
+        if not data:
             return (
                 jsonify(
                     {
@@ -191,7 +167,7 @@ def get_overview(entry_id):
                 404,
             )
 
-        return jsonify(dict(row))
+        return jsonify(data[0])
 
 
 @api_bp.route("/minileagues/<int:entry_id>", methods=["GET"])
@@ -251,21 +227,10 @@ def login():
             users.select().where(users.c.email == data["email"])
         ).first()
 
-        if not user:
+        if not user or not check_password_hash(user.password_hash, data["password"]):
             return jsonify({"error": "Invalid credentials"}), 401
 
-        user_map = user._mapping
-
-        if not check_password_hash(user_map["password_hash"], data["password"]):
-            return jsonify({"error": "Invalid credentials"}), 401
-
-        return jsonify(
-            {
-                "entryId": user_map["fpl_entry_id"],
-                "firstName": user_map["first_name"],
-                "lastName": user_map["last_name"],
-            }
-        )
+        return jsonify({"message": "Login successful", "entryId": user.fpl_entry_id})
 
 
 @auth_bp.route("/signup", methods=["POST"])
@@ -285,8 +250,6 @@ def signup():
             conn.execute(
                 users.insert().values(
                     email=data["email"],
-                    first_name=data["first_name"],
-                    last_name=data["last_name"],
                     password_hash=generate_password_hash(data["password"]),
                     fpl_entry_id=data["entryId"],
                 )

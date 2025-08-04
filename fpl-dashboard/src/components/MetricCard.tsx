@@ -1,6 +1,7 @@
 import { Card, CardContent, Typography, Stack } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import '../App.css';
 
 interface MetricCardProps {
     title: string;
